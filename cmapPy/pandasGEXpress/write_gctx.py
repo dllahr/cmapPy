@@ -29,6 +29,8 @@ def write(gctoo_object, out_file_name, convert_back_to_neg_666=True, gzip_compre
         - gzip_compression_level (int, default=6): Compression level to use for metadata. 
         - max_chunk_kb (int, default=1024): The maximum number of KB a given chunk will occupy
         - matrix_dtype (numpy dtype, default=numpy.float32): Storage data type for data matrix. 
+            NB use numpy.bool_ instead numpy.bool, numnpy.int_ instead numpy.int.  
+            See https://numpy.org/doc/stable/user/basics.types.html for list of types
 	"""
     # make sure out file has a .gctx suffix
     gctx_out_name = add_gctx_to_out_name(out_file_name)
@@ -111,20 +113,16 @@ def calculate_elem_per_kb(max_chunk_kb, matrix_dtype):
 
     Input: 
         - max_chunk_kb (int, default=1024): The maximum number of KB a given chunk will occupy
-        - matrix_dtype (numpy dtype, default=numpy.float32): Storage data type for data matrix. 
-            Currently needs to be np.float32 or np.float64 (TODO: figure out a better way to get bits from a numpy dtype).
+        - matrix_dtype (numpy dtype, default=numpy.float32): Storage data type for data matrix
 
     Returns: 
         elem_per_kb (int), the number of elements per kb for matrix dtype specified. 
     """
-    if matrix_dtype == numpy.float32:
-        return (max_chunk_kb * 8)/32
-    elif matrix_dtype == numpy.float64:
-        return (max_chunk_kb * 8)/64
-    else:
-        msg = "Invalid matrix_dtype: {}; only numpy.float32 and numpy.float64 are currently supported".format(matrix_dtype)
-        logger.error(msg)
-        raise Exception("write_gctx.calculate_elem_per_kb " + msg)
+
+    matrix_dtype_itemsize = matrix_dtype(1).itemsize
+    logger.debug("matrix_dtype_itemsize:  {}".format(matrix_dtype_itemsize))
+
+    return max_chunk_kb / matrix_dtype_itemsize
 
 
 def set_data_matrix_chunk_size(df_shape, max_chunk_kb, elem_per_kb):

@@ -93,12 +93,17 @@ class TestWriteGctx(unittest.TestCase):
         elem_per_kb2 = write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype2)
         self.assertEqual(elem_per_kb2, correct_elem_per_kb2)
 
-        # dtype is somethign else 
-        dtype3 = numpy.int 
-        with self.assertRaises(Exception) as context:
-            write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype3)
-        self.assertTrue("only numpy.float32 and numpy.float64 are currently supported" in str(context.exception))
+        dtype3 = numpy.intc
+        correct_elem_per_kb3 = max_chunk_kb / 4
+        elem_per_kb3 = write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype3)
+        logger.debug("elem_per_kb3:  {}".format(elem_per_kb3))
+        self.assertEqual(elem_per_kb3, correct_elem_per_kb3)
 
+        dtype4 = numpy.bool_
+        correct_elem_per_kb4 = max_chunk_kb
+        elem_per_kb4 = write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype4)
+        logger.debug("elem_per_kb4:  {}".format(elem_per_kb4))
+        self.assertEqual(elem_per_kb4, correct_elem_per_kb4)
 
     def test_set_data_matrix_chunk_size(self):
         max_chunk_kb = 1024
