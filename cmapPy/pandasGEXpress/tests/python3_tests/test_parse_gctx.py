@@ -342,7 +342,7 @@ class TestParseGctx(unittest.TestCase):
         mini_data_df = pd.DataFrame([[-0.283359, 0.011270], [0.304119, 1.921061], [0.398655, -0.144652]],
                                     index=["200814_at", "218597_s_at", "217140_s_at"],
                                     columns=["LJP005_A375_24H:DMSO:-666", "LJP005_A375_24H:BRD-K76908866:10"])
-        mini_data_df = mini_data_df.astype(np.float32)
+        mini_data_df = mini_data_df.astype(np.float64)
         mini_data_df.index.name = "rid"
         mini_data_df.columns.name = "cid"
 
