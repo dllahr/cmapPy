@@ -18,7 +18,7 @@ version_number = "GCTX1.0"
 
 
 def write(gctoo_object, out_file_name, convert_back_to_neg_666=True, gzip_compression_level=6,
-    max_chunk_kb=1024, matrix_dtype=numpy.float32):
+    max_chunk_kb=1024, matrix_dtype=numpy.float32, data_compression_level=4):
     """
 	Writes a GCToo instance to specified file.
 
@@ -31,6 +31,8 @@ def write(gctoo_object, out_file_name, convert_back_to_neg_666=True, gzip_compre
         - matrix_dtype (numpy dtype, default=numpy.float32): Storage data type for data matrix. 
             NB use numpy.bool_ instead numpy.bool, numnpy.int_ instead numpy.int.  
             See https://numpy.org/doc/stable/user/basics.types.html for list of types
+        - data_compression_level (int, default=4): Compression level to use for data. Default value
+            of 4 corresponds to hdf5 default. 
 	"""
     # make sure out file has a .gctx suffix
     gctx_out_name = add_gctx_to_out_name(out_file_name)
@@ -51,7 +53,7 @@ def write(gctoo_object, out_file_name, convert_back_to_neg_666=True, gzip_compre
     # write data matrix
     data_df = check_fix_metadata(gctoo_object.data_df)
     hdf5_out.create_dataset(data_matrix_node, data=data_df.transpose().values,
-        dtype=matrix_dtype)
+        dtype=matrix_dtype, compression=data_compression_level)
 
     # write col metadata
     col_metadata_df = check_fix_metadata(gctoo_object.col_metadata_df)
