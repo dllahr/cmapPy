@@ -255,7 +255,11 @@ def assemble_row_metadata(full_df, num_col_metadata, num_data_rows, num_row_meta
     row_metadata.columns.name = row_header_name
 
     # Convert metadata to numeric if possible
-    row_metadata = row_metadata.apply(lambda x: pd.to_numeric(x, errors="ignore"))
+    for col in row_metadata.columns:
+        try:
+            row_metadata[col] = pd.to_numeric(row_metadata[col], errors="raise")
+        except ValueError:
+            pass
 
     return row_metadata
 
@@ -281,7 +285,11 @@ def assemble_col_metadata(full_df, num_col_metadata, num_row_metadata, num_data_
     col_metadata.columns.name = column_header_name
 
     # Convert metadata to numeric if possible
-    col_metadata = col_metadata.apply(lambda x: pd.to_numeric(x, errors="ignore"))
+    for col in col_metadata.columns:
+        try:
+            col_metadata[col] = pd.to_numeric(col_metadata[col], errors="raise")
+        except ValueError:
+            pass
 
     return col_metadata
 
