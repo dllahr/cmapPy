@@ -311,7 +311,11 @@ def parse_metadata_df(dim, meta_group, convert_neg_666):
     # Convert metadata to numeric if possible, after converting everything to string first
     # Note: This conversion first to string is to ensure consistent behavior between
     #    the gctx and gct parser (which by default reads the entire text file into a string)
-    meta_df = meta_df.apply(lambda x: pd.to_numeric(x, errors="ignore"))
+    for col in meta_df.columns:
+        try:
+            meta_df[col] = pd.to_numeric(meta_df[col], errors="raise")
+        except ValueError:
+            pass
 
     meta_df.set_index(pd.Index(ids, dtype=str), inplace=True)
 
