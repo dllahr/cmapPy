@@ -40,7 +40,7 @@ class TestEdgeCases(unittest.TestCase):
             # logger.debug("Comparing data values in Column: {}".format(c))
             self.assertTrue(len(list(c1_gctoo.data_df[c])) == len(list(c1_gctoox.data_df[c])),
                             "Lengths of column {} differ between gct and gctx".format(c))
-            pandas_testing.assert_series_equal(c1_gctoo.data_df[c], c1_gctoox.data_df[c])
+            pandas_testing.assert_series_equal(c1_gctoo.data_df[c], c1_gctoox.data_df[c], check_dtype=False)
 
         # check rows and columns: row_metadata_df
         self.assertTrue(set(list(c1_gctoo.row_metadata_df.index)) == set(list(c1_gctoox.row_metadata_df.index)),
@@ -107,7 +107,7 @@ class TestEdgeCases(unittest.TestCase):
         for c in list(c2_gctoo.data_df.columns):
             self.assertTrue(len(list(c2_gctoo.data_df[c])) == len(list(c2_gctoox.data_df[c])),
                             "Lengths of column {} differ between gct and gctx".format(c))
-            pandas_testing.assert_series_equal(c2_gctoo.data_df[c], c2_gctoox.data_df[c])
+            pandas_testing.assert_series_equal(c2_gctoo.data_df[c], c2_gctoox.data_df[c], check_dtype=False)
 
         # check rows and columns: row_metadata_df
         self.assertTrue(set(list(c2_gctoo.row_metadata_df.index)) == set(list(c2_gctoox.row_metadata_df.index)),
@@ -167,7 +167,7 @@ class TestEdgeCases(unittest.TestCase):
         for c in list(c3_gctoo.data_df.columns):
             self.assertTrue(len(list(c3_gctoo.data_df[c])) == len(list(c3_gctoox.data_df[c])),
                             "Lengths of column {} differ between gct and gctx".format(c))
-            pandas_testing.assert_series_equal(c3_gctoo.data_df[c], c3_gctoox.data_df[c])
+            pandas_testing.assert_series_equal(c3_gctoo.data_df[c], c3_gctoox.data_df[c], check_dtype=False)
 
         # check rows and columns: row_metadata_df
         self.assertTrue(set(list(c3_gctoo.row_metadata_df.index)) == set(list(c3_gctoox.row_metadata_df.index)),

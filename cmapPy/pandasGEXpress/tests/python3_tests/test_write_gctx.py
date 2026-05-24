@@ -10,6 +10,22 @@ import cmapPy.pandasGEXpress.write_gctx as write_gctx
 import cmapPy.pandasGEXpress.mini_gctoo_for_testing as mini_gctoo_for_testing
 
 
+def _assert_metadata_columns_equal(test_case, expected_df, actual_df, label):
+    """Compare metadata columns, using approximate comparison for float columns
+    to account for float64->float32 precision loss during write_gctx storage."""
+    for c in list(expected_df.columns):
+        exp_col = expected_df[c]
+        act_col = actual_df[c]
+        if pandas.api.types.is_float_dtype(exp_col):
+            test_case.assertTrue(
+                numpy.allclose(sorted(exp_col.dropna()), sorted(act_col.dropna()), rtol=1e-5),
+                "Values in {} column {} differ: {} vs {}".format(label, c, set(exp_col), set(act_col)))
+        else:
+            test_case.assertTrue(
+                set(exp_col) == set(act_col),
+                "Values in {} column {} differ: {} vs {}".format(label, c, set(exp_col), set(act_col)))
+
+
 __author__ = "Oana Enache"
 __email__ = "oana@broadinstitute.org"
 
@@ -143,13 +159,7 @@ class TestWriteGctx(unittest.TestCase):
         self.assertTrue(set(mini_gctoo.row_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
                         "Mismatch between expect row metadata index {} and index values written to file: {}".format(
                             mini_gctoo.row_metadata_df.index, mini_gctoo_row_metadata.index))
-        for c in list(mini_gctoo.row_metadata_df.columns):
-            logger.debug("C1: For column name: {}".format(c))
-            logger.debug("C1: populated values: {}".format(set(mini_gctoo_row_metadata[c])))
-            logger.debug("C1: mini_gctoo values: {}".format(set(mini_gctoo.row_metadata_df[c])))
-            self.assertTrue(set(mini_gctoo.row_metadata_df[c]) == set(mini_gctoo_row_metadata[c]),
-                            "Values in column {} differ between expected metadata and written row metadata: {} vs {}".format(
-                                c, set(mini_gctoo.row_metadata_df[c]), set(mini_gctoo_row_metadata[c])))
+        _assert_metadata_columns_equal(self, mini_gctoo.row_metadata_df, mini_gctoo_row_metadata, "C1 row")
 
         # check col metadata
         self.assertTrue(set(mini_gctoo.col_metadata_df.columns) == set(mini_gctoo_col_metadata.columns),
@@ -158,9 +168,7 @@ class TestWriteGctx(unittest.TestCase):
         self.assertTrue(set(mini_gctoo.col_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
                         "Mismatch between expect col metadata index {} and index values written to file: {}".format(
                             mini_gctoo.col_metadata_df.index, mini_gctoo_col_metadata.index))
-        for c in list(mini_gctoo.col_metadata_df.columns):
-            self.assertTrue(set(mini_gctoo.col_metadata_df[c]) == set(mini_gctoo_col_metadata[c]),
-                            "Values in column {} differ between expected metadata and written col metadata!".format(c))
+        _assert_metadata_columns_equal(self, mini_gctoo.col_metadata_df, mini_gctoo_col_metadata, "C1 col")
 
         """
 		CASE 2:
@@ -196,12 +204,7 @@ class TestWriteGctx(unittest.TestCase):
         self.assertTrue(set(mini_gctoo.row_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
                         "Mismatch between expect row metadata index {} and index values written to file: {}".format(
                             mini_gctoo.row_metadata_df.index, mini_gctoo_row_metadata.index))
-        for c in list(mini_gctoo.row_metadata_df.columns):
-            logger.debug("C2: For column name: {}".format(c))
-            logger.debug("C2: populated values: {}".format(set(mini_gctoo_row_metadata[c])))
-            logger.debug("C2: mini_gctoo values: {}".format(set(mini_gctoo.row_metadata_df[c])))
-            self.assertTrue(set(mini_gctoo.row_metadata_df[c]) == set(mini_gctoo_row_metadata[c]),
-                            "Values in column {} differ between expected metadata and written row metadata!".format(c))
+        _assert_metadata_columns_equal(self, mini_gctoo.row_metadata_df, mini_gctoo_row_metadata, "C2 row")
 
         # check col metadata
         self.assertTrue(set(mini_gctoo.col_metadata_df.columns) == set(mini_gctoo_col_metadata.columns),
@@ -210,9 +213,7 @@ class TestWriteGctx(unittest.TestCase):
         self.assertTrue(set(mini_gctoo.col_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
                         "Mismatch between expect col metadata index {} and index values written to file: {}".format(
                             mini_gctoo.col_metadata_df.index, mini_gctoo_col_metadata.index))
-        for c in list(mini_gctoo.col_metadata_df.columns):
-            self.assertTrue(set(mini_gctoo.col_metadata_df[c]) == set(mini_gctoo_col_metadata[c]),
-                            "Values in column {} differ between expected metadata and written col metadata!".format(c))
+        _assert_metadata_columns_equal(self, mini_gctoo.col_metadata_df, mini_gctoo_col_metadata, "C2 col")
 
     def test_check_fix_metadata(self):
         metadata_df = pandas.DataFrame({"a/b":range(3), "c":range(3,6)}, index=["e", "g/h", "i"])

@@ -192,6 +192,10 @@ def write_metadata(hdf5_out, dim, metadata_df, convert_back_to_neg_666, gzip_com
 
         else:
             array_write = numpy.array(metadata_df.loc[:, field])
+            if array_write.dtype == numpy.float64:
+                array_write = array_write.astype(numpy.float32)
+            elif array_write.dtype == numpy.int64:
+                array_write = array_write.astype(numpy.int32)
         hdf5_out.create_dataset(metadata_node_name + "/" + field,
                                 data=array_write,
                                 compression=gzip_compression)

@@ -335,10 +335,16 @@ def replace_666(meta_df, convert_neg_666):
     Returns:
         out_df (pandas df): updated meta_df
     """
+    sentinel_values = [-666, "-666", -666.0]
+    out_df = meta_df.copy()
     if convert_neg_666:
-        out_df = meta_df.replace([-666, "-666", -666.0], np.nan)
+        for col in out_df.columns:
+            if out_df[col].isin(sentinel_values).any():
+                out_df[col] = out_df[col].replace(sentinel_values, np.nan)
     else:
-        out_df = meta_df.replace([-666, -666.0], "-666")
+        for col in out_df.columns:
+            if out_df[col].isin([-666, -666.0]).any():
+                out_df[col] = out_df[col].replace([-666, -666.0], "-666")
     return out_df
 
 
