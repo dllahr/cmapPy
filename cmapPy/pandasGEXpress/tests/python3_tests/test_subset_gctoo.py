@@ -41,7 +41,7 @@ class TestSubsetGCToo(unittest.TestCase):
         # happy path
         out_g = sg.subset_gctoo(self.in_gct, rid=["d", "a", "b"], cidx=[0],
                                exclude_rid=["a"])
-        pd.util.testing.assert_frame_equal(out_g.data_df, self.in_gct.data_df.iloc[[1, 3], [0]])
+        pd.testing.assert_frame_equal(out_g.data_df, self.in_gct.data_df.iloc[[1, 3], [0]])
 
     def test_get_rows_to_keep(self):
 

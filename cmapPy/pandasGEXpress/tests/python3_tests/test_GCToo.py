@@ -57,7 +57,7 @@ class TestGctoo(unittest.TestCase):
 
         # shouldn't have any problems re-setting row_meta
         my_gctoo1.row_metadata_df = new_row_meta1
-        pd.util.testing.assert_frame_equal(my_gctoo1.row_metadata_df, row_metadata_df)
+        pd.testing.assert_frame_equal(my_gctoo1.row_metadata_df, row_metadata_df)
 
         ## reset row_metadata_df: to not a DF
         new_row_meta2 = "this is my new row metadata"
@@ -91,7 +91,7 @@ class TestGctoo(unittest.TestCase):
 
         # shouldn't have any problems
         my_gctoo2.col_metadata_df = new_col_meta1
-        pd.util.testing.assert_frame_equal(my_gctoo2.col_metadata_df, col_metadata_df)
+        pd.testing.assert_frame_equal(my_gctoo2.col_metadata_df, col_metadata_df)
 
         ## reset col_metadata_df: to not a DF
         new_col_meta2 = "this is my new col metadata"
@@ -127,9 +127,9 @@ class TestGctoo(unittest.TestCase):
         my_gctoo3.data_df = new_data_df1
 
         # resetting data_df means rearranging the row and col meta dfs
-        pd.util.testing.assert_frame_equal(my_gctoo3.data_df, new_data_df1)
-        pd.util.testing.assert_frame_equal(my_gctoo3.col_metadata_df, new_col_meta1)
-        pd.util.testing.assert_frame_equal(my_gctoo3.row_metadata_df, new_row_meta1)
+        pd.testing.assert_frame_equal(my_gctoo3.data_df, new_data_df1)
+        pd.testing.assert_frame_equal(my_gctoo3.col_metadata_df, new_col_meta1)
+        pd.testing.assert_frame_equal(my_gctoo3.row_metadata_df, new_row_meta1)
 
         ## reset data_df: row_meta doesn't match
         new_data_df2 = my_gctoo3.data_df.copy()
@@ -172,7 +172,7 @@ class TestGctoo(unittest.TestCase):
         ## needs rearrangement upon initializing
         my_gctoo5 = GCToo.GCToo(data_df=data_df, row_metadata_df=row_metadata_df, col_metadata_df=new_col_meta1)
 
-        pd.util.testing.assert_frame_equal(my_gctoo5.col_metadata_df, col_metadata_df)
+        pd.testing.assert_frame_equal(my_gctoo5.col_metadata_df, col_metadata_df)
 
 
     def test_check_df(self):

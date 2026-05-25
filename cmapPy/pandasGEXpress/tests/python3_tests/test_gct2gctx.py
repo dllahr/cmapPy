@@ -25,9 +25,9 @@ class TestGCT2GCTx(unittest.TestCase):
 		in_gct = parse_gct.parse(in_name)
 		out_gctx = parse_gctx.parse(out_name)
 
-		pd.util.testing.assert_frame_equal(in_gct.data_df, out_gctx.data_df)
-		pd.util.testing.assert_frame_equal(in_gct.col_metadata_df, out_gctx.col_metadata_df)
-		pd.util.testing.assert_frame_equal(in_gct.row_metadata_df, out_gctx.row_metadata_df)
+		pd.testing.assert_frame_equal(in_gct.data_df, out_gctx.data_df)
+		pd.testing.assert_frame_equal(in_gct.col_metadata_df, out_gctx.col_metadata_df)
+		pd.testing.assert_frame_equal(in_gct.row_metadata_df, out_gctx.row_metadata_df)
 
 		no_meta = "cmapPy/pandasGEXpress/tests/functional_tests/mini_gctoo_for_testing_nometa.gct"
 		added_meta = "cmapPy/pandasGEXpress/tests/functional_tests/test_gct2gctx_out_annotated.gctx"
@@ -41,9 +41,9 @@ class TestGCT2GCTx(unittest.TestCase):
 		annotated_gctx = parse_gctx.parse(added_meta)
 
 		# Check added annotations are the same as original input GCTX
-		pd.util.testing.assert_frame_equal(in_gct.data_df, annotated_gctx.data_df, check_less_precise=3)
-		pd.util.testing.assert_frame_equal(in_gct.col_metadata_df, annotated_gctx.col_metadata_df)
-		pd.util.testing.assert_frame_equal(in_gct.row_metadata_df, annotated_gctx.row_metadata_df)
+		pd.testing.assert_frame_equal(in_gct.data_df, annotated_gctx.data_df, atol=1e-3)
+		pd.testing.assert_frame_equal(in_gct.col_metadata_df, annotated_gctx.col_metadata_df)
+		pd.testing.assert_frame_equal(in_gct.row_metadata_df, annotated_gctx.row_metadata_df)
 
 		# Clean up
 		os.remove(out_name)

@@ -267,7 +267,7 @@ class TestParseGct(unittest.TestCase):
         self.assertEqual(out_g.data_df.shape, (3, 2))
 
         # N.B. returned object should have same order as input
-        pd.testing.assert_frame_equal(e_data_df, out_g.data_df, check_less_precise=2, check_names=False)
+        pd.testing.assert_frame_equal(e_data_df, out_g.data_df, atol=1e-2, check_names=False)
         pd.testing.assert_frame_equal(e_col_meta_df, out_g.col_metadata_df[["pert_id", "pert_iname"]], check_names=False)
 
     def test_parse_gct_int_ids(self):

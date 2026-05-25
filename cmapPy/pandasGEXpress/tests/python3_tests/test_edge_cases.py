@@ -7,7 +7,7 @@ import logging
 import cmapPy.pandasGEXpress.setup_GCToo_logger as setup_logger
 import cmapPy.pandasGEXpress.parse_gct as parse_gct
 import cmapPy.pandasGEXpress.parse_gctx as parse_gctx
-import pandas.util.testing as pandas_testing
+import pandas.testing as pandas_testing
 
 
 FUNCTIONAL_TESTS_PATH = "cmapPy/pandasGEXpress/tests/functional_tests/"

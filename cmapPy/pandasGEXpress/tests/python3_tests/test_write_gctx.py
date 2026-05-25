@@ -55,7 +55,7 @@ class TestWriteGctx(unittest.TestCase):
         mini1 = mini_gctoo_for_testing.make()
         mini1.src = None
         write_gctx.write(mini1, "no_src_example")
-        hdf5_file = h5py.File("no_src_example.gctx")
+        hdf5_file = h5py.File("no_src_example.gctx", "r")
         hdf5_src1 = hdf5_file.attrs[write_gctx.src_attr]
         hdf5_file.close()
         self.assertEqual(hdf5_src1, "no_src_example.gctx")
@@ -64,7 +64,7 @@ class TestWriteGctx(unittest.TestCase):
         # case 2: gctoo obj does have src
         mini2 = mini_gctoo_for_testing.make()
         write_gctx.write(mini2, "with_src_example.gctx")
-        hdf5_file = h5py.File("with_src_example.gctx")
+        hdf5_file = h5py.File("with_src_example.gctx", "r")
         hdf5_src2 = hdf5_file.attrs[write_gctx.src_attr]
         hdf5_file.close()
         self.assertEqual(hdf5_src2, "mini_gctoo.gctx")
@@ -77,7 +77,7 @@ class TestWriteGctx(unittest.TestCase):
         mini1.version = None
         fn = "no_version_provided_example.gctx"
         write_gctx.write(mini1, fn)
-        hdf5_file = h5py.File(fn)
+        hdf5_file = h5py.File(fn, "r")
         hdf5_v1 = hdf5_file.attrs[write_gctx.version_attr]
         hdf5_file.close()
         self.assertEqual(hdf5_v1.decode(), write_gctx.version_number)
@@ -88,7 +88,7 @@ class TestWriteGctx(unittest.TestCase):
         mini2.version = "MY_VERSION"
         fn = "with_version_provided_example.gctx"
         write_gctx.write(mini2, fn)
-        hdf5_file = h5py.File(fn)
+        hdf5_file = h5py.File(fn, "r")
         hdf5_v2 = hdf5_file.attrs[write_gctx.version_attr]
         hdf5_file.close()
         self.assertEqual(hdf5_v2.decode(), write_gctx.version_number)

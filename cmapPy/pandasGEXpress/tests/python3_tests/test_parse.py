@@ -1,7 +1,7 @@
 import logging
 import cmapPy.pandasGEXpress.setup_GCToo_logger as setup_logger
 import unittest
-import pandas.util.testing as pandas_testing
+import pandas.testing as pandas_testing
 import cmapPy.pandasGEXpress.subset_gctoo as subset_gctoo
 import cmapPy.pandasGEXpress.mini_gctoo_for_testing as mini_gctoo_for_testing
 import cmapPy.pandasGEXpress.parse as parse

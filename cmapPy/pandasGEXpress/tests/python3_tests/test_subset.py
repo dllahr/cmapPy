@@ -43,9 +43,9 @@ class TestSubset(unittest.TestCase):
         out_gct = parse.parse(out_name)
         expected_gct = parse.parse(expected_out_path)
 
-        pd.util.testing.assert_frame_equal(out_gct.data_df, expected_gct.data_df)
-        pd.util.testing.assert_frame_equal(out_gct.row_metadata_df, expected_gct.row_metadata_df)
-        pd.util.testing.assert_frame_equal(out_gct.col_metadata_df, expected_gct.col_metadata_df)
+        pd.testing.assert_frame_equal(out_gct.data_df, expected_gct.data_df)
+        pd.testing.assert_frame_equal(out_gct.row_metadata_df, expected_gct.row_metadata_df)
+        pd.testing.assert_frame_equal(out_gct.col_metadata_df, expected_gct.col_metadata_df)
 
         # Clean up
         os.remove(out_name)

@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import h5py
 
-import pandas.util.testing as pandas_testing
+import pandas.testing as pandas_testing
 import cmapPy.pandasGEXpress.setup_GCToo_logger as setup_logger
 import cmapPy.pandasGEXpress.GCToo as GCToo
 import cmapPy.pandasGEXpress.parse_gctx as parse_gctx
@@ -357,22 +357,22 @@ class TestParseGctx(unittest.TestCase):
         data_df1 = parse_gctx.parse_data_df(data_dset, [0, 1, 2], [0, 1], row_meta, col_meta)
         # note: checks to 3 decimal places
         pandas_testing.assert_frame_equal(mini_data_df, data_df1,
-                           check_exact=False, check_less_precise=True)
+                           check_exact=False, rtol=1e-4)
 
         # case 2: subset; ridx < cidx
         data_df2 = parse_gctx.parse_data_df(data_dset, [0], [0, 1], row_meta, col_meta)
         pandas_testing.assert_frame_equal(mini_data_df.iloc[[0], [0, 1]], data_df2,
-                           check_exact=False, check_less_precise=True)
+                           check_exact=False, rtol=1e-4)
 
         # case 3: subset; ridx == cidx
         data_df3 = parse_gctx.parse_data_df(data_dset, [0], [0], row_meta, col_meta)
         pandas_testing.assert_frame_equal(mini_data_df.iloc[[0], [0]], data_df3,
-                           check_exact=False, check_less_precise=True)
+                           check_exact=False, rtol=1e-4)
 
         # case 4: subset; ridx > cidx
         data_df4 = parse_gctx.parse_data_df(data_dset, [0, 1, 2], [0], row_meta, col_meta)
         pandas_testing.assert_frame_equal(mini_data_df.iloc[[0, 1, 2], [0]], data_df4,
-                           check_exact=False, check_less_precise=True)
+                           check_exact=False, rtol=1e-4)
 
         mini_gctx.close()
 

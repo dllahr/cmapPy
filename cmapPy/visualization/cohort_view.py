@@ -92,7 +92,7 @@ def _add_row_percentages(s):
     index = s.index
     assert "Total" in index
     total = s['Total']
-    for label, x in s.iteritems():
+    for label, x in s.items():
         if label == "Total":
             continue
         s[label] = '''<span style="width:50%;float: left;text-align:right">{:,d} </span>

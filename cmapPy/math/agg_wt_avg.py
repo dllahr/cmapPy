@@ -26,7 +26,7 @@ def get_upper_triangle(correlation_matrix):
         correlation_matrix; rid is the row index, cid is the column index,
         corr is the extracted correlation value
     '''
-    upper_triangle = correlation_matrix.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(np.bool))
+    upper_triangle = correlation_matrix.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool))
 
     # convert matrix into long form description
     upper_tri_df = upper_triangle.stack().reset_index(level=1)

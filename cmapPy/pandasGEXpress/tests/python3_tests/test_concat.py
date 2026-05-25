@@ -26,9 +26,9 @@ class TestConcat(unittest.TestCase):
         # Merge left and right
         concated_gct = cg.hstack([left_gct, right_gct], False, None, [], False)
 
-        pd.util.testing.assert_frame_equal(expected_gct.data_df, concated_gct.data_df, check_names=False)
-        pd.util.testing.assert_frame_equal(expected_gct.row_metadata_df, concated_gct.row_metadata_df, check_names=False)
-        pd.util.testing.assert_frame_equal(expected_gct.col_metadata_df, concated_gct.col_metadata_df, check_names=False)
+        pd.testing.assert_frame_equal(expected_gct.data_df, concated_gct.data_df, check_names=False)
+        pd.testing.assert_frame_equal(expected_gct.row_metadata_df, concated_gct.row_metadata_df, check_names=False)
+        pd.testing.assert_frame_equal(expected_gct.col_metadata_df, concated_gct.col_metadata_df, check_names=False)
 
     def test_top_bottom(self):
         top_gct_path = os.path.join(FUNCTIONAL_TESTS_DIR, "test_merge_top.gct")
@@ -42,9 +42,9 @@ class TestConcat(unittest.TestCase):
         # Merge top and bottom
         concated_gct = cg.vstack([top_gct, bottom_gct], False, None, [], False)
 
-        pd.util.testing.assert_frame_equal(expected_gct.data_df, concated_gct.data_df, check_names=False)
-        pd.util.testing.assert_frame_equal(expected_gct.row_metadata_df, concated_gct.row_metadata_df, check_names=False)
-        pd.util.testing.assert_frame_equal(expected_gct.col_metadata_df, concated_gct.col_metadata_df, check_names=False)
+        pd.testing.assert_frame_equal(expected_gct.data_df, concated_gct.data_df, check_names=False)
+        pd.testing.assert_frame_equal(expected_gct.row_metadata_df, concated_gct.row_metadata_df, check_names=False)
+        pd.testing.assert_frame_equal(expected_gct.col_metadata_df, concated_gct.col_metadata_df, check_names=False)
 
     def test_assemble_common_meta(self):
         # rhd3 header needs to be removed
@@ -89,7 +89,7 @@ class TestConcat(unittest.TestCase):
 
         out_meta1 = cg.assemble_common_meta([meta1, meta2], ["rhd3"], None, False, None)
         logger.debug("out_meta1:\n{}".format(out_meta1))
-        pd.util.testing.assert_frame_equal(out_meta1, e_meta1)
+        pd.testing.assert_frame_equal(out_meta1, e_meta1)
 
         # Order of indices and columns are different
         meta3 = pd.DataFrame(
@@ -108,7 +108,7 @@ class TestConcat(unittest.TestCase):
         logger.debug("meta3:\n{}".format(meta3))
         logger.debug("e_meta2:\n{}".format(e_meta2))
         out_meta2 = cg.assemble_common_meta([meta1, meta3], [], None, False, None)
-        pd.util.testing.assert_frame_equal(out_meta2, e_meta2)
+        pd.testing.assert_frame_equal(out_meta2, e_meta2)
 
         # Some ids not present in both dfs
         meta4 = pd.DataFrame(
@@ -146,7 +146,7 @@ class TestConcat(unittest.TestCase):
 
         concated = cg.assemble_concatenated_meta([meta2, meta1], False)
         logger.debug("happy path - concated:\n{}".format(concated))
-        pd.util.testing.assert_frame_equal(e_concated, concated)
+        pd.testing.assert_frame_equal(e_concated, concated)
 
         #remove all metadata
         r = cg.assemble_concatenated_meta([meta2, meta1], True)
@@ -171,7 +171,7 @@ class TestConcat(unittest.TestCase):
             columns=["s1", "s2", "s3", "s4", "s5", "s6"])
 
         horiz_concated = cg.assemble_data([df1, df2], "horiz")
-        pd.util.testing.assert_frame_equal(horiz_concated, e_horiz_concated)
+        pd.testing.assert_frame_equal(horiz_concated, e_horiz_concated)
 
         # Vertical concat, df3 has s4 instead of s3
         df3 = pd.DataFrame(
@@ -185,7 +185,7 @@ class TestConcat(unittest.TestCase):
             columns=["s1", "s2", "s3", "s4"])
 
         vert_concated = cg.assemble_data([df3, df1], "vert")
-        pd.util.testing.assert_frame_equal(vert_concated, e_vert_concated)
+        pd.testing.assert_frame_equal(vert_concated, e_vert_concated)
 
     def test_do_reset_ids(self):
         meta_df = pd.DataFrame(
@@ -216,8 +216,8 @@ class TestConcat(unittest.TestCase):
 
         # Happy path
         cg.do_reset_ids(meta_df, data_df, "horiz")
-        pd.util.testing.assert_frame_equal(meta_df, e_meta_df)
-        pd.util.testing.assert_frame_equal(data_df, e_data_df)
+        pd.testing.assert_frame_equal(meta_df, e_meta_df)
+        pd.testing.assert_frame_equal(data_df, e_data_df)
 
     def test_build_common_all_meta_df(self):
         # rhd3 header needs to be removed
@@ -245,7 +245,7 @@ class TestConcat(unittest.TestCase):
         logger.debug("r_all_w_dups:\n{}".format(r_all_w_dups))
         self.assertEqual((3,2), r_all.shape)
         self.assertEqual((6,2), r_all_w_dups.shape)
-        pd.util.testing.assert_frame_equal(e_meta1, r_all)
+        pd.testing.assert_frame_equal(e_meta1, r_all)
 
         #remove all metadata fields
         r_all, r_all_w_dups = cg.build_common_all_meta_df([meta1, meta2], [], True)
@@ -277,14 +277,14 @@ class TestConcat(unittest.TestCase):
         logger.debug("""rhd5 not in meta4 so it should be automatically dropped without being
         explictly listed in fields_to_remove - out_meta3:
         {}""".format(out_meta3))
-        pd.util.testing.assert_frame_equal(out_meta3, e_meta3)
+        pd.testing.assert_frame_equal(out_meta3, e_meta3)
 
         # Empty metadata
         empty_meta = pd.DataFrame([], index=["a", "b", "c"])
         logger.debug("empty metadata provided - empty_meta.empty: {}".format(empty_meta.empty))
         out_meta4, _ = cg.build_common_all_meta_df([empty_meta, empty_meta], [], False)
         logger.debug("empty metadata provided - out_meta4:\n{}".format(out_meta4))
-        pd.util.testing.assert_frame_equal(out_meta4, empty_meta)
+        pd.testing.assert_frame_equal(out_meta4, empty_meta)
 
         #metadata has duplicates but index is unique
         meta5 = pd.DataFrame({"rhd1":[0,0,1]}, index=range(3))

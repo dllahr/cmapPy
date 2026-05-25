@@ -107,7 +107,7 @@ def write_version(hdf5_out):
 	Input:
 		- hdf5_out (h5py): hdf5 file to write to 
 	"""
-    hdf5_out.attrs[version_attr] = numpy.string_(version_number)
+    hdf5_out.attrs[version_attr] = numpy.bytes_(version_number)
 
 def calculate_elem_per_kb(max_chunk_kb, matrix_dtype):
     """
@@ -165,7 +165,7 @@ def write_metadata(hdf5_out, dim, metadata_df, convert_back_to_neg_666, gzip_com
         logger.error("'dim' argument must be either 'row' or 'col'!")
 
     # write id field to expected node
-    hdf5_out.create_dataset(metadata_node_name + "/id", data=[numpy.string_(str(x)) for x in metadata_df.index],
+    hdf5_out.create_dataset(metadata_node_name + "/id", data=[numpy.bytes_(str(x)) for x in metadata_df.index],
         compression=gzip_compression)
 
     metadata_fields = list(metadata_df.columns.copy())
