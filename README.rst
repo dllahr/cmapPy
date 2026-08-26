@@ -13,11 +13,9 @@
     :target: http://cmappy.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
-**cmapPy:** Tools for interacting with .gctx and .gct files, and other Connectivity Map resources
+**cmapPy:** Tools for interacting with .gctx and .gct files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-**Connectivity Map, Broad Institute of MIT and Harvard**
-
-Documentation: `<https://clue.io/cmapPy/index.html>`_
+This repo was originally built by the **Connectivity Map, Broad Institute of MIT and Harvard**
 
 For questions/problems, please add an issue (that includes code/files that reproduce your problem) to the repository. 
 
