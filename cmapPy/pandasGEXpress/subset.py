@@ -50,6 +50,8 @@ def build_parser():
 
 
 def main():
+    """ Entry point for command-line use: parses sys.argv, sets up logging,
+    and calls subset_main(). """
     # Get args
     args = build_parser().parse_args(sys.argv[1:])
     setup_logger.setup(verbose=args.verbose)
@@ -58,7 +60,25 @@ def main():
 
 def subset_main(args):
     """ Separate method from main() in order to make testing easier and to
-    enable command-line access. """
+    enable command-line access.
+
+    Reads rid/cid/exclude_rid/exclude_cid (each of which may be given on the
+    command line as a literal list of ids or as the path to a single .grp
+    file), and subsets args.in_path accordingly. For .gct input, parses the
+    whole file and uses subset_gctoo.subset_gctoo(); for .gctx input, uses
+    parse_gctx's hyperslab selection to read only the requested rid/cid
+    (exclude_rid/exclude_cid are not supported for .gctx and raise an
+    Exception if provided). Writes the result to args.out_name as a .gct or
+    .gctx file depending on args.out_type.
+
+    Args:
+        args (argparse.Namespace): namespace produced by build_parser(),
+            containing in_path, rid, cid, exclude_rid, exclude_cid,
+            out_name, out_type, and verbose
+
+    Returns:
+        None (writes subsetted GCT(x) to args.out_name)
+    """
 
     # Read in each of the command line arguments
     rid = _read_arg(args.rid)

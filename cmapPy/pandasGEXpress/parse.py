@@ -33,7 +33,7 @@ def parse(file_path, convert_neg_666=True, rid=None, cid=None, ridx=None, cidx=N
 
         Optional:
         - convert_neg_666 (bool): whether to convert -666 values to numpy.nan or not
-            (see Note below for more details on this). Default = False.
+            (see Note below for more details on this). Default = True.
         - rid (list of strings): list of row ids to specifically keep from gctx. Default=None.
         - cid (list of strings): list of col ids to specifically keep from gctx. Default=None.
         - ridx (list of integers): only read the rows corresponding to this

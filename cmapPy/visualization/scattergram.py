@@ -24,12 +24,20 @@ def scattergram(
     fontfamily="Roboto"
     ):
     '''
-    Make a grid of scatterplots of a set of columns against each other. 
-    The values should all be "normalized", i.e., between 0 and 1.
+    Make a grid of scatterplots of a set of columns against each other, with a
+    histogram of each column along the diagonal. The values should all be
+    "normalized", i.e., between 0 and 1 (axes are fixed to roughly that range).
+    Rows containing a NaN in any of the plotted columns are dropped before
+    plotting. df is not modified (a copy restricted to columns is used).
     @param df: Pandas DataFrame containing the variables to be scattered.
     @param columns: list of column names to plot.
-    @param column_names: list of display names corresponding to the 
+    @param column_names: list of display names corresponding to the
     variable columns.
+    @kwarg title: if non-empty, title text displayed in the top right corner
+    of the figure, along with the number of rows plotted (after dropping NaNs).
+    @kwarg outfile: if non-empty, path to save the figure to (via plt.savefig).
+    @kwarg fig_dpi: DPI used when saving the figure to outfile.
+    @kwarg fontfamily: font family used for the title text.
     @return: g: Seaborn PairGrid object
     '''
     
@@ -85,6 +93,9 @@ def scattergram(
     
     
 def _adjust_axes(g, font_properties={}):
+    '''Hide the upper-triangle subplots of the PairGrid g, and style the
+    lower-triangle and diagonal subplots (axis limits, tick marks/labels,
+    frame thickness/style).'''
     for i, j in zip(*np.triu_indices_from(g.axes, 1)):
         g.axes[i, j].set_visible(False)
 
@@ -116,6 +127,8 @@ def _adjust_axes(g, font_properties={}):
 
 
 def _draw_row_labels(g, column_names):
+    '''Annotate each diagonal subplot of the PairGrid g with the corresponding
+    column's display name, centered in the axes.'''
     for i in range(g.axes.shape[0]):
         label = column_names[i]
         ax = g.axes[i, i]
@@ -145,13 +158,16 @@ def _plot_hist(data, **kwargs):
 
 
 def _set_ticks_fontproperties(ax, font_properties):
+    '''Re-set ax's tick labels to their current numeric tick positions, applying
+    font_properties (a dict of matplotlib Text properties) to them.'''
     ax.set_xticklabels(ax.get_xticks(), font_properties)
     ax.set_yticklabels(ax.get_yticks(), font_properties)
 
 
 def plot_selected_points_among_all(*args, **kwargs):
     '''
-    Legacy function.
+    Legacy alias for scattergram(); forwards all positional and keyword
+    arguments to it unchanged.
     '''
     return scattergram(*args, **kwargs)
 

@@ -23,6 +23,13 @@ logger = logging.getLogger(setup_logger.LOGGER_NAME)
 
 
 def build_parser():
+    """ Build argument parser for the command-line gct2gctx tool.
+
+    Returns:
+        parser (argparse.ArgumentParser): parser with arguments for
+            filename (input .gct path), output_filepath, verbose,
+            row_annot_path, and col_annot_path
+    """
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # required
@@ -40,13 +47,33 @@ def build_parser():
 
 
 def main():
+    """ Entry point for command-line use: parses sys.argv, sets up logging,
+    and calls gct2gctx_main(). """
     args = build_parser().parse_args(sys.argv[1:])
     setup_logger.setup(verbose=args.verbose)
     gct2gctx_main(args)
 
 
 def gct2gctx_main(args):
-    """ Separate from main() in order to make command-line tool. """
+    """ Separate from main() in order to make command-line tool.
+
+    Parses args.filename as a .gct file (without converting -666 nulls to
+    numpy.nan), optionally overrides its row and/or column metadata by
+    reading tab-separated annotation files (args.row_annot_path/
+    args.col_annot_path, indexed by rid/cid in their first column - every
+    row/column id in the data must be present in the corresponding
+    annotations file), and writes the result as a .gctx file to
+    args.output_filepath (or, if that is None, to args.filename with its
+    extension changed to .gctx).
+
+    Args:
+        args (argparse.Namespace): namespace produced by build_parser(),
+            containing filename, output_filepath, row_annot_path,
+            col_annot_path, and verbose
+
+    Returns:
+        None (writes the converted GCToo to a .gctx file)
+    """
 
     in_gctoo = parse_gct.parse(args.filename, convert_neg_666=False)
 

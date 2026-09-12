@@ -1,0 +1,288 @@
+import logging
+import cmapPy.pandasGEXpress.setup_GCToo_logger as setup_logger
+import unittest
+import h5py
+import os
+import numpy
+import pandas
+import cmapPy.pandasGEXpress.parse_gctx as parse_gctx
+import cmapPy.pandasGEXpress.write_gctx as write_gctx
+import cmapPy.pandasGEXpress.mini_gctoo_for_testing as mini_gctoo_for_testing
+
+
+def _assert_metadata_columns_equal(test_case, expected_df, actual_df, label):
+    """Compare metadata columns, using approximate comparison for float columns
+    to account for float64->float32 precision loss during write_gctx storage."""
+    for c in list(expected_df.columns):
+        exp_col = expected_df[c]
+        act_col = actual_df[c]
+        if pandas.api.types.is_float_dtype(exp_col):
+            test_case.assertTrue(
+                numpy.allclose(sorted(exp_col.dropna()), sorted(act_col.dropna()), rtol=1e-5),
+                "Values in {} column {} differ: {} vs {}".format(label, c, set(exp_col), set(act_col)))
+        else:
+            test_case.assertTrue(
+                set(exp_col) == set(act_col),
+                "Values in {} column {} differ: {} vs {}".format(label, c, set(exp_col), set(act_col)))
+
+
+__author__ = "Oana Enache"
+__email__ = "oana@broadinstitute.org"
+
+FUNCTIONAL_TESTS_PATH = "cmapPy/pandasGEXpress/tests/functional_tests/"
+
+# instantiate logger
+logger = logging.getLogger(setup_logger.LOGGER_NAME)
+
+
+class TestWriteGctx(unittest.TestCase):
+    def setUp(self):
+        # shared by the test_write_metadata* tests below, which each need a fresh
+        # mini_gctoo instance (with -666 left unconverted) to write from
+        self.mini_gctoo = mini_gctoo_for_testing.make(convert_neg_666=False)
+
+    def test_add_gctx_to_out_name(self):
+        name1 = "my_cool_file"
+        name2 = "my_other_cool_file.gctx"
+
+        # case 1: out file name doesn't end in gctx
+        out_name1 = write_gctx.add_gctx_to_out_name(name1)
+        self.assertTrue(out_name1 == name1 + ".gctx",
+                        ("out name should be my_cool_file.gctx, not {}").format(out_name1))
+
+        # case 2: out file name does end in gctx
+        out_name2 = write_gctx.add_gctx_to_out_name(name2)
+        self.assertTrue(out_name2 == name2,
+                        ("out name should be my_other_cool_file.gctx, not {}").format(out_name2))
+
+    def test_write_src(self):
+        # case 1: gctoo obj doesn't have src
+        mini1 = mini_gctoo_for_testing.make()
+        mini1.src = None
+        write_gctx.write(mini1, "no_src_example")
+        hdf5_file = h5py.File("no_src_example.gctx", "r")
+        hdf5_src1 = hdf5_file.attrs[write_gctx.src_attr]
+        hdf5_file.close()
+        self.assertEqual(hdf5_src1, "no_src_example.gctx")
+        os.remove("no_src_example.gctx")
+
+        # case 2: gctoo obj does have src
+        mini2 = mini_gctoo_for_testing.make()
+        write_gctx.write(mini2, "with_src_example.gctx")
+        hdf5_file = h5py.File("with_src_example.gctx", "r")
+        hdf5_src2 = hdf5_file.attrs[write_gctx.src_attr]
+        hdf5_file.close()
+        self.assertEqual(hdf5_src2, "mini_gctoo.gctx")
+        os.remove("with_src_example.gctx")
+
+    def test_write_version(self):
+        # TODO @oana refactor this test so it just calls the write_version method
+        # case 1: gctoo obj doesn't have version
+        mini1 = mini_gctoo_for_testing.make()
+        mini1.version = None
+        fn = "no_version_provided_example.gctx"
+        write_gctx.write(mini1, fn)
+        hdf5_file = h5py.File(fn, "r")
+        hdf5_v1 = hdf5_file.attrs[write_gctx.version_attr]
+        hdf5_file.close()
+        self.assertEqual(hdf5_v1.decode(), write_gctx.version_number)
+        os.remove(fn)
+
+        # case 2: gctoo obj does have version, but it is not used when writing
+        mini2 = mini_gctoo_for_testing.make()
+        mini2.version = "MY_VERSION"
+        fn = "with_version_provided_example.gctx"
+        write_gctx.write(mini2, fn)
+        hdf5_file = h5py.File(fn, "r")
+        hdf5_v2 = hdf5_file.attrs[write_gctx.version_attr]
+        hdf5_file.close()
+        self.assertEqual(hdf5_v2.decode(), write_gctx.version_number)
+        os.remove(fn)
+
+    def test_calculate_elem_per_kb(self):
+        max_chunk_kb = 1024
+
+        # dtype is numpy.float32
+        dtype1 = numpy.float32
+        correct_elem_per_kb1 = 256
+        elem_per_kb1 = write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype1)
+        self.assertEqual(elem_per_kb1, correct_elem_per_kb1)
+
+        # dtype is numpy.float64
+        dtype2 = numpy.float64
+        correct_elem_per_kb2 = 128
+        elem_per_kb2 = write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype2)
+        self.assertEqual(elem_per_kb2, correct_elem_per_kb2)
+
+        dtype3 = numpy.intc
+        correct_elem_per_kb3 = max_chunk_kb / 4
+        elem_per_kb3 = write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype3)
+        logger.debug("elem_per_kb3:  {}".format(elem_per_kb3))
+        self.assertEqual(elem_per_kb3, correct_elem_per_kb3)
+
+        dtype4 = numpy.bool_
+        correct_elem_per_kb4 = max_chunk_kb
+        elem_per_kb4 = write_gctx.calculate_elem_per_kb(max_chunk_kb, dtype4)
+        logger.debug("elem_per_kb4:  {}".format(elem_per_kb4))
+        self.assertEqual(elem_per_kb4, correct_elem_per_kb4)
+
+    def test_set_data_matrix_chunk_size(self):
+        max_chunk_kb = 1024
+        elem_per_kb = 256
+        sample_data_shape = (978, 1000)
+        expected_chunk_size = (978, 268)
+        calculated_chunk_size = write_gctx.set_data_matrix_chunk_size(sample_data_shape, max_chunk_kb, elem_per_kb)
+        self.assertEqual(calculated_chunk_size, expected_chunk_size)
+
+
+    def test_write_metadata(self):
+        """
+		CASE 1:
+			- write metadata (has '-666') to file, do not convert -666
+			- parse in written metadata, don't convert -666 
+		"""
+        mini_gctoo = self.mini_gctoo
+        hdf5_writer = h5py.File(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx", "w")
+        write_gctx.write_metadata(hdf5_writer, "row", mini_gctoo.row_metadata_df, False, 6)
+        write_gctx.write_metadata(hdf5_writer, "col", mini_gctoo.col_metadata_df, False, 6)
+        hdf5_writer.close()
+        logger.debug("Wrote mini_gctoo_metadata.gctx to {}".format(
+            os.path.join(FUNCTIONAL_TESTS_PATH, "mini_gctoo_metadata.gctx")))
+
+        # read in written metadata, then close and delete file
+        mini_gctoo_col_metadata = parse_gctx.get_column_metadata(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx",
+                                                                 convert_neg_666=False)
+        mini_gctoo_row_metadata = parse_gctx.get_row_metadata(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx",
+                                                              convert_neg_666=False)
+
+        os.remove(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx")
+
+        # check row metadata
+        self.assertTrue(set(mini_gctoo.row_metadata_df.columns) == set(mini_gctoo_row_metadata.columns),
+                        "Mismatch between expected row metadata columns {} and column values written to file: {}".format(
+                            mini_gctoo.row_metadata_df.columns, mini_gctoo_row_metadata.columns))
+        self.assertTrue(set(mini_gctoo.row_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
+                        "Mismatch between expect row metadata index {} and index values written to file: {}".format(
+                            mini_gctoo.row_metadata_df.index, mini_gctoo_row_metadata.index))
+        _assert_metadata_columns_equal(self, mini_gctoo.row_metadata_df, mini_gctoo_row_metadata, "C1 row")
+
+        # check col metadata
+        self.assertTrue(set(mini_gctoo.col_metadata_df.columns) == set(mini_gctoo_col_metadata.columns),
+                        "Mismatch between expected col metadata columns {} and column values written to file: {}".format(
+                            mini_gctoo.col_metadata_df.columns, mini_gctoo_col_metadata.columns))
+        self.assertTrue(set(mini_gctoo.col_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
+                        "Mismatch between expect col metadata index {} and index values written to file: {}".format(
+                            mini_gctoo.col_metadata_df.index, mini_gctoo_col_metadata.index))
+        _assert_metadata_columns_equal(self, mini_gctoo.col_metadata_df, mini_gctoo_col_metadata, "C1 col")
+
+        """
+		CASE 2:
+			- write metadata (has NaN, not '-666') to file, do convert NaN back to '-666'
+			- parse in written metadata, don't convert -666 
+		"""
+        # first convert mini_gctoo's row & col metadata dfs -666s to NaN
+        with pandas.option_context('future.no_silent_downcasting', True):
+            converted_row_metadata = mini_gctoo.row_metadata_df.replace([-666, "-666", -666.0],
+                                                                        [numpy.nan, numpy.nan, numpy.nan]).infer_objects(copy=False)
+            converted_col_metadata = mini_gctoo.col_metadata_df.replace([-666, "-666", -666.0],
+                                                                        [numpy.nan, numpy.nan, numpy.nan]).infer_objects(copy=False)
+        logger.debug("First row of converted_row_metadata: {}".format(converted_row_metadata.iloc[0]))
+
+        # write row and col metadata fields from mini_gctoo_for_testing instance to file
+        # Note this time does convert back to -666
+        hdf5_writer = h5py.File(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx", "w")
+        write_gctx.write_metadata(hdf5_writer, "row", converted_row_metadata, True, 6)
+        write_gctx.write_metadata(hdf5_writer, "col", converted_col_metadata, True, 6)
+        hdf5_writer.close()
+
+        # read in written metadata, then close and delete file
+        mini_gctoo_col_metadata = parse_gctx.get_column_metadata(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx",
+                                                                 convert_neg_666=False)
+        mini_gctoo_row_metadata = parse_gctx.get_row_metadata(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx",
+                                                              convert_neg_666=False)
+
+        os.remove(FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata.gctx")
+
+        # check row metadata
+        self.assertTrue(set(mini_gctoo.row_metadata_df.columns) == set(mini_gctoo_row_metadata.columns),
+                        "Mismatch between expected row metadata columns {} and column values written to file: {}".format(
+                            mini_gctoo.row_metadata_df.columns, mini_gctoo_row_metadata.columns))
+        self.assertTrue(set(mini_gctoo.row_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
+                        "Mismatch between expect row metadata index {} and index values written to file: {}".format(
+                            mini_gctoo.row_metadata_df.index, mini_gctoo_row_metadata.index))
+        _assert_metadata_columns_equal(self, mini_gctoo.row_metadata_df, mini_gctoo_row_metadata, "C2 row")
+
+        # check col metadata
+        self.assertTrue(set(mini_gctoo.col_metadata_df.columns) == set(mini_gctoo_col_metadata.columns),
+                        "Mismatch between expected col metadata columns {} and column values written to file: {}".format(
+                            mini_gctoo.col_metadata_df.columns, mini_gctoo_col_metadata.columns))
+        self.assertTrue(set(mini_gctoo.col_metadata_df.index) == set(mini_gctoo.col_metadata_df.index),
+                        "Mismatch between expect col metadata index {} and index values written to file: {}".format(
+                            mini_gctoo.col_metadata_df.index, mini_gctoo_col_metadata.index))
+        _assert_metadata_columns_equal(self, mini_gctoo.col_metadata_df, mini_gctoo_col_metadata, "C2 col")
+
+    def test_write_metadata_unicode(self):
+        """Metadata containing non-ASCII (UTF-8) characters should round-trip through
+        write_gctx/parse_gctx, and the file should record the field as utf-8 encoded."""
+        mini_gctoo = self.mini_gctoo
+        row_metadata_df = mini_gctoo.row_metadata_df.copy()
+        col_metadata_df = mini_gctoo.col_metadata_df.copy()
+
+        unicode_values = ["héllo", "wörld", "naïve", "北京市", "Zürich", "café"]
+        row_metadata_df["unicode_field"] = unicode_values[:row_metadata_df.shape[0]]
+        col_metadata_df["unicode_field"] = unicode_values[:col_metadata_df.shape[0]]
+
+        fn = FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata_unicode.gctx"
+        hdf5_writer = h5py.File(fn, "w")
+        write_gctx.write_metadata(hdf5_writer, "row", row_metadata_df, False, 6)
+        write_gctx.write_metadata(hdf5_writer, "col", col_metadata_df, False, 6)
+        hdf5_writer.close()
+
+        # confirm the file itself records this field as utf-8 (not ascii)
+        hdf5_reader = h5py.File(fn, "r")
+        string_info = h5py.check_string_dtype(hdf5_reader["/0/META/ROW/unicode_field"].dtype)
+        hdf5_reader.close()
+        self.assertEqual(string_info.encoding, "utf-8")
+
+        parsed_row_metadata = parse_gctx.get_row_metadata(fn, convert_neg_666=False)
+        parsed_col_metadata = parse_gctx.get_column_metadata(fn, convert_neg_666=False)
+        os.remove(fn)
+
+        self.assertEqual(list(row_metadata_df["unicode_field"]), list(parsed_row_metadata["unicode_field"]))
+        self.assertEqual(list(col_metadata_df["unicode_field"]), list(parsed_col_metadata["unicode_field"]))
+
+    def test_write_metadata_bad_encoding_raises_informative_error(self):
+        """A metadata value that cannot be encoded as utf-8 (e.g. a lone surrogate code
+        point) should raise an Exception identifying the offending field and row, rather
+        than a generic/opaque error from h5py or numpy."""
+        mini_gctoo = self.mini_gctoo
+        row_metadata_df = mini_gctoo.row_metadata_df.copy()
+        bad_values = ["ok"] * row_metadata_df.shape[0]
+        bad_values[1] = "bad\udcffvalue"
+        row_metadata_df["bad_field"] = bad_values
+
+        fn = FUNCTIONAL_TESTS_PATH + "/mini_gctoo_bad_encoding.gctx"
+        hdf5_writer = h5py.File(fn, "w")
+        try:
+            with self.assertRaises(Exception) as cm:
+                write_gctx.write_metadata(hdf5_writer, "row", row_metadata_df, False, 6)
+            msg = str(cm.exception)
+            self.assertIn("bad_field", msg)
+            self.assertIn("i:  1", msg)
+        finally:
+            hdf5_writer.close()
+            os.remove(fn)
+
+    def test_check_fix_metadata(self):
+        metadata_df = pandas.DataFrame({"a/b":range(3), "c":range(3,6)}, index=["e", "g/h", "i"])
+        logger.debug("preparation - metadata_df:\n{}".format(metadata_df))
+
+        r = write_gctx.check_fix_metadata(metadata_df)
+        logger.debug("r.shape:  {}".format(r.shape))
+        logger.debug("r:\n{}".format(r))
+
+
+if __name__ == "__main__":
+    setup_logger.setup(verbose=True)
+
+    unittest.main()

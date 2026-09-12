@@ -8,7 +8,7 @@ Each line is its own dictionary.
 Each dictionary has the following keys:
     - head (string): identifier for the set
     - desc (string): longer description of the set
-    - entries (list): members of the set 
+    - entry (list): members of the set
 
 AUTHOR: Corey Flynn, Broad Institute, 2012
 MODIFIED: Lev Litichevskiy, 2017
@@ -24,12 +24,22 @@ SET_MEMBERS_FIELD = "entry"
 def read(file_path):
     """ Read a gmt file at the path specified by file_path.
 
+    Each line of the file is expected to be tab-delimited with at least 3 fields: a set
+    identifier, a set description, and one or more set members (any trailing empty fields,
+    e.g. from extra trailing tabs, are dropped). Set identifiers must be unique across the
+    file, and, within a single line, member entries must be unique.
+
     Args:
         file_path (string): path to gmt file
 
     Returns:
         gmt (GMT object): list of dicts, where each dict corresponds to one
-            line of the GMT file
+            line of the GMT file, with keys "head" (set identifier), "desc"
+            (set description), and "entry" (list of set members)
+
+    Raises:
+        AssertionError: if a line has fewer than 3 tab-delimited fields, if a line has
+            duplicate entries, or if set identifiers are not unique across the file
 
     """
     # Read in file
@@ -81,6 +91,9 @@ def verify_gmt_integrity(gmt):
 
     Returns:
         None
+
+    Raises:
+        AssertionError: if set identifiers (the "head" field) are not unique across gmt
 
     """
 

@@ -19,7 +19,21 @@ logger = logging.getLogger(setup_logger.LOGGER_NAME)
 
 def make(convert_neg_666=True):
     """
-    Creates a small GCToo instance (with representative examples of typically found fields); can use for testing.
+    Creates a small (6x6) GCToo instance with representative examples of
+    typically found row/col metadata fields (id, count_cv, distil_ss,
+    zmad_ref, distil_nsample, mfc_plate_id) and data values, for use in
+    tests. Row and column metadata are identical to each other. version is
+    "GCTX1.0" and src is "mini_gctoo.gctx".
+
+    Input:
+        Optional:
+        - convert_neg_666 (bool): whether to convert -666 values in the
+            metadata to numpy.nan (mirroring the convert_neg_666 parameter
+            of the gct(x) parsers). If False, -666 values are instead
+            represented as the string "-666". Default = True.
+
+    Output:
+        - mini_gctoo (GCToo): a small GCToo instance for use in testing.
     """
     # metadata examples; should be one of each type reasonable to find
     id_vals = ["LJP007_MCF10A_24H:TRT_CP:BRD-K93918653:3.33", "MISC003_A375_24H:TRT_CP:BRD-K93918653:3.33",
@@ -45,7 +59,8 @@ def make(convert_neg_666=True):
                                          columns=['id', 'count_cv', 'distil_nsample', 'distil_ss', 'mfc_plate_id', 'zmad_ref'])
 
     if convert_neg_666:
-        mini_row_metadata = mini_row_metadata.replace([-666, "-666", -666.0], [numpy.nan, numpy.nan, numpy.nan])
+        with pandas.option_context('future.no_silent_downcasting', True):
+            mini_row_metadata = mini_row_metadata.replace([-666, "-666", -666.0], [numpy.nan, numpy.nan, numpy.nan]).infer_objects(copy=False)
         # if all values in a column are nanpandas.Series(mini_row_metadata.isna().sum() == mini_row_metadata.shape[0]) convert dtype of that column to float
         all_nan_columns = (mini_row_metadata.isnull().sum() == numpy.array(mini_row_metadata.shape[0])).to_numpy().nonzero()[0]
         mini_row_metadata = mini_row_metadata.astype({d: 'float' for d in mini_row_metadata.columns[all_nan_columns.tolist()]})

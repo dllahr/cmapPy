@@ -32,7 +32,7 @@ def parse(gctx_file_path, convert_neg_666=True, rid=None, cid=None,
 
         Optional:
         - convert_neg_666 (bool): whether to convert -666 values to numpy.nan or not
-            (see Note below for more details on this). Default = False.
+            (see Note below for more details on this). Default = True.
         - rid (list of strings): list of row ids to specifically keep from gctx. Default=None.
         - cid (list of strings): list of col ids to specifically keep from gctx. Default=None.
         - ridx (list of integers): only read the rows corresponding to this
@@ -159,22 +159,33 @@ def parse(gctx_file_path, convert_neg_666=True, rid=None, cid=None,
 
 def check_and_order_id_inputs(rid, ridx, cid, cidx, row_meta_df, col_meta_df, sort_row_meta, sort_col_meta):
     """
-    Makes sure that (if entered) id inputs entered are of one type (string id or index)
+    Makes sure that (if entered) id inputs entered are of one type (string id or index),
+    validates them against the parsed metadata, and converts them into ordered
+    positional indexes to use for subsetting.
+
     Input:
         - rid (list or None): if not None, a list of rids
         - ridx (list or None): if not None, a list of indexes
         - cid (list or None): if not None, a list of cids
         - cidx (list or None): if not None, a list of indexes
+        - row_meta_df (pandas DataFrame or None): parsed row metadata to validate/
+            subset against (its index is the full set of rids); None if row
+            metadata isn't being used (e.g. col_meta_only case).
+        - col_meta_df (pandas DataFrame or None): parsed col metadata to validate/
+            subset against (its index is the full set of cids); None if col
+            metadata isn't being used (e.g. row_meta_only case).
         - sort_row_meta (bool): boolean indicating whether to return sorted row indexes
         - sort_col_meta (bool): boolean indicating whether to return sorted column indexes
     Output:
-        - a tuple of the ordered ridx and cidx
+        - a tuple (ordered_ridx, ordered_cidx) of the row and column positional
+            indexes to subset by (None for whichever dimension has no
+            corresponding meta_df).
     """
     (row_type, row_ids) = check_id_idx_exclusivity(rid, ridx)
     (col_type, col_ids) = check_id_idx_exclusivity(cid, cidx)
 
 
-    row_ids = check_and_convert_ids(row_type, row_ids, row_meta_df, sort_col_meta)
+    row_ids = check_and_convert_ids(row_type, row_ids, row_meta_df, sort_row_meta)
     ordered_ridx = get_ordered_idx(row_type, row_ids, row_meta_df, sort_row_meta)
 
     col_ids = check_and_convert_ids(col_type, col_ids, col_meta_df, sort_col_meta)
@@ -207,6 +218,27 @@ def check_id_idx_exclusivity(id, idx):
 
 
 def check_and_convert_ids(id_type, id_list, meta_df, sort_id):
+    """
+    If subsetting by id ("rid"/"cid"), converts id_list's entries to the same
+    dtype as meta_df's index and checks that they're all present in it. If
+    subsetting by positional index ("ridx"/"cidx") and sort_id is True,
+    checks that all indexes are within range. Does nothing if meta_df is
+    None (i.e. that dimension's metadata isn't being parsed).
+
+    Input:
+        - id_type (str): either "id", "idx", or None (see check_id_idx_exclusivity)
+        - id_list (list): list of ids or indexes to check/convert (empty if id_type is None)
+        - meta_df (pandas DataFrame or None): metadata dataframe to validate against
+        - sort_id (bool): whether idx-based validation should check indexes are in range
+
+    Output:
+        - id_list (list or None): the (possibly type-converted) id_list, or None
+            if meta_df was None.
+
+    Raises:
+        Exception if any id is not present in meta_df.index, if any idx is out
+        of range, or if id_list's dtype can't be converted to meta_df.index's dtype.
+    """
     if meta_df is not None:
         if id_type == "id":
             id_list = convert_ids_to_meta_type(id_list, meta_df)
@@ -219,6 +251,21 @@ def check_and_convert_ids(id_type, id_list, meta_df, sort_id):
 
 
 def check_id_validity(id_list, meta_df):
+    """
+    Checks that every entry of id_list is present in meta_df's index.
+
+    Input:
+        - id_list (list): list of ids to check
+        - meta_df (pandas DataFrame): metadata dataframe whose index holds
+            the full set of valid ids
+
+    Output:
+        None
+
+    Raises:
+        Exception listing the mismatched ids, if any of id_list's entries
+        are not present in meta_df.index.
+    """
     id_set = set(id_list)
     meta_set = set(meta_df.index)
     mismatch_ids = id_set - meta_set
@@ -230,6 +277,26 @@ def check_id_validity(id_list, meta_df):
 
 
 def check_idx_validity(id_list, meta_df, sort_id):
+    """
+    If sort_id is True, checks that every entry of id_list (positional
+    indexes) is within the valid range [0, N) where N is the number of
+    rows in meta_df. (If sort_id is False, no check is performed, since in
+    that case id_list is being used only to compute a re-ordering of an
+    already-validated, already-fetched subset - see get_ordered_idx.)
+
+    Input:
+        - id_list (list of int): positional indexes to check
+        - meta_df (pandas DataFrame): metadata dataframe whose row count
+            defines the valid index range
+        - sort_id (bool): whether to actually perform the range check
+
+    Output:
+        None
+
+    Raises:
+        Exception listing the out-of-range indexes, if sort_id is True and
+        any are found.
+    """
     if sort_id:
         N = meta_df.shape[0]
         out_of_range_ids = [my_id for my_id in id_list if my_id < 0 or my_id >= N]
@@ -241,6 +308,22 @@ def check_idx_validity(id_list, meta_df, sort_id):
 
 
 def convert_ids_to_meta_type(id_list, meta_df):
+    """
+    Converts id_list's entries to the same dtype as meta_df's index, so that
+    user-supplied ids (e.g. always strings) can be compared/looked-up
+    correctly regardless of how the ids happen to be typed in the file.
+
+    Input:
+        - id_list (list): list of ids to convert
+        - meta_df (pandas DataFrame): metadata dataframe whose index dtype
+            id_list should be converted to
+
+    Output:
+        - a numpy array of id_list's values, cast to meta_df.index.dtype
+
+    Raises:
+        Exception if id_list's values can't be converted to meta_df.index's dtype.
+    """
     try:
         return pd.Series(id_list).astype(meta_df.index.dtype).values
     except ValueError as ve:
@@ -253,14 +336,25 @@ def convert_ids_to_meta_type(id_list, meta_df):
 
 def get_ordered_idx(id_type, id_list, meta_df, sort_idx):
     """
-    Gets index values corresponding to ids to subset and orders them.
+    Gets positional index values corresponding to ids to subset by.
+
     Input:
-        - id_type (str): either "id", "idx" or None
-        - id_list (list): either a list of indexes or id names
-        - meta_df (dataframe): dataframe 
-        - sort_idx (bool): boolean indicating whether to return sorted indexes or not
+        - id_type (str): either "id", "idx" or None. If None, id_list is
+            ignored and all rows of meta_df are used.
+        - id_list (list): either a list of positional indexes (id_type="idx"),
+            a list of id names (id_type="id"), or ignored (id_type=None)
+        - meta_df (dataframe): metadata dataframe used to look up positional
+            indexes for id_type="id", or to determine the full range of
+            indexes for id_type=None
+        - sort_idx (bool): if True, return the sorted positional indexes to
+            use for actually reading/subsetting the data (i.e. the indexes
+            to fetch, in ascending order). If False, instead return the
+            permutation that maps the sorted order back to id_list's
+            original (as-requested) order - i.e. the indexes to apply to an
+            already-sorted-and-fetched subset to restore the user's
+            requested order.
     Output:
-        - a sorted list of indexes to subset a dimension by
+        - a list of indexes to subset a dimension by (None if meta_df is None)
     """
     if meta_df is not None:
         if id_type is None:
@@ -279,6 +373,18 @@ def parse_metadata_df(dim, meta_group, convert_neg_666):
     """
     Reads in all metadata from .gctx file to pandas DataFrame
     with proper GCToo specifications.
+
+    Each metadata field is read as its own HDF5 dataset. String-typed
+    datasets are decoded using h5py's .asstr() accessor, which decodes each
+    dataset according to whichever character encoding (ASCII or UTF-8) is
+    recorded for that dataset in the file itself - the encoding is detected
+    per-dataset (via h5py.check_string_dtype), not assumed, so this
+    transparently supports gctx files written with either encoding.
+    Non-string (numeric) datasets are read directly and then, like all
+    columns, cast to str so that behavior is consistent with the gct
+    parser (which reads the whole file as text); columns are subsequently
+    converted back to numeric where possible.
+
     Input:
         - dim (str): Dimension of metadata; either "row" or "column"
         - meta_group (HDF5 group): Group from which to read metadata values
@@ -333,19 +439,30 @@ def parse_metadata_df(dim, meta_group, convert_neg_666):
 
 
 def replace_666(meta_df, convert_neg_666):
-    """ Replace -666, -666.0, and optionally "-666".
+    """ Replaces occurrences of the CMap null sentinel value in metadata.
+
+    If convert_neg_666 is True, any of the values -666 (int), "-666" (str),
+    or -666.0 (float) found in a column are replaced with numpy.nan (this
+    covers the sentinel regardless of whether that metadata column ended up
+    numeric or string-typed). If convert_neg_666 is False, numeric sentinel
+    values (-666 or -666.0) are instead normalized to the string "-666",
+    so that the sentinel is represented consistently as a string across
+    columns.
+
     Args:
-        meta_df (pandas df):
-        convert_neg_666 (bool):
+        meta_df (pandas df): metadata dataframe to process
+        convert_neg_666 (bool): whether to convert sentinel values to
+            numpy.nan (True) or normalize them to the string "-666" (False)
     Returns:
-        out_df (pandas df): updated meta_df
+        out_df (pandas df): updated copy of meta_df
     """
     sentinel_values = [-666, "-666", -666.0]
     out_df = meta_df.copy()
     if convert_neg_666:
-        for col in out_df.columns:
-            if out_df[col].isin(sentinel_values).any():
-                out_df[col] = out_df[col].replace(sentinel_values, np.nan)
+        with pd.option_context('future.no_silent_downcasting', True):
+            for col in out_df.columns:
+                if out_df[col].isin(sentinel_values).any():
+                    out_df[col] = out_df[col].replace(sentinel_values, np.nan).infer_objects(copy=False)
     else:
         for col in out_df.columns:
             if out_df[col].isin([-666, -666.0]).any():
@@ -383,6 +500,14 @@ def parse_data_df(data_dset, ridx, cidx, row_meta, col_meta):
             (may be all of them if no subsetting)
         -row_meta (pandas DataFrame): the parsed in row metadata
         -col_meta (pandas DataFrame): the parsed in col metadata
+
+    Output:
+        - data_df (pandas DataFrame): the (possibly subsetted) data matrix,
+            indexed by row_meta.index[ridx] and col_meta.index[cidx]. If
+            subsetting is needed, whichever of the row/column dimensions
+            would produce the smaller intermediate array is fetched from
+            the HDF5 dataset first (h5py only supports fancy-indexing one
+            dimension at a time).
     """
     total_rows = len(row_meta.index)
     total_cols = len(col_meta.index)
@@ -418,7 +543,8 @@ def get_column_metadata(gctx_file_path, convert_neg_666=True):
         - gctx_file_path (str): full path to gctx file you want to parse.
 
         Optional:
-        - convert_neg_666 (bool): whether to convert -666 values to num
+        - convert_neg_666 (bool): whether to convert -666 values to numpy.nan
+            or not. Default = True.
 
     Output:
         - col_meta (pandas DataFrame): a DataFrame of all column metadata values.
@@ -441,7 +567,8 @@ def get_row_metadata(gctx_file_path, convert_neg_666=True):
         - gctx_file_path (str): full path to gctx file you want to parse.
 
         Optional:
-        - convert_neg_666 (bool): whether to convert -666 values to num
+        - convert_neg_666 (bool): whether to convert -666 values to numpy.nan
+            or not. Default = True.
 
     Output:
         - row_meta (pandas DataFrame): a DataFrame of all row metadata values.

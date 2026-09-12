@@ -19,21 +19,35 @@ logger = logging.getLogger(setup_logger.LOGGER_NAME)
 def subset_gctoo(gctoo, row_bool=None, col_bool=None, rid=None, cid=None,
                 ridx=None, cidx=None, exclude_rid=None, exclude_cid=None):
     """ Extract a subset of data from a GCToo object in a variety of ways.
-    The order of rows and columns will be preserved.
+    The order of rows and columns of the input gctoo will be preserved.
+
+    At most one of rid, row_bool, and ridx may be provided (they are
+    mutually exclusive ways of selecting which rows to keep); likewise at
+    most one of cid, col_bool, and cidx may be provided for columns. If none
+    of the three are provided for an axis, all entries along that axis are
+    kept. exclude_rid/exclude_cid are then applied on top of whichever rows/
+    columns were selected (or on top of all rows/columns, if none of
+    rid/row_bool/ridx or cid/col_bool/cidx were given) to drop the specified
+    ids.
 
     Args:
-        gctoo (GCToo object)
+        gctoo (GCToo object): object to subset
         row_bool (list of bools): length must equal gctoo.data_df.shape[0]
         col_bool (list of bools): length must equal gctoo.data_df.shape[1]
         rid (list of strings): rids to include
         cid (list of strings): cids to include
         ridx (list of integers): row integer ids to include
         cidx (list of integers): col integer ids to include
-        exclude_rid (list of strings): rids to exclude
-        exclude_cid (list of strings): cids to exclude
+        exclude_rid (list of strings): rids to exclude (applied after rid/row_bool/ridx selection)
+        exclude_cid (list of strings): cids to exclude (applied after cid/col_bool/cidx selection)
 
     Returns:
         out_gctoo (GCToo object): gctoo after subsetting
+
+    Raises:
+        AssertionError: if more than one of rid/row_bool/ridx (or more than
+            one of cid/col_bool/cidx) is provided, or if the resulting
+            subset is empty
     """
     assert sum([(rid is not None), (row_bool is not None), (ridx is not None)]) <= 1, (
         "Only one of rid, row_bool, and ridx can be provided.")
@@ -68,12 +82,17 @@ def subset_gctoo(gctoo, row_bool=None, col_bool=None, rid=None, cid=None,
 def get_rows_to_keep(gctoo, rid=None, row_bool=None, ridx=None, exclude_rid=None):
     """ Figure out based on the possible row inputs which rows to keep.
 
+    At most one of rid, row_bool, and ridx is expected to be provided; they
+    are checked in that order of precedence (rid, then row_bool, then ridx),
+    and if all three are None, all rows are kept. exclude_rid is then
+    applied on top of that selection to drop any matching ids.
+
     Args:
-        gctoo (GCToo object):
-        rid (list of strings):
-        row_bool (boolean array):
-        ridx (list of integers):
-        exclude_rid (list of strings):
+        gctoo (GCToo object): object whose rows are being considered
+        rid (list of strings): rids to include
+        row_bool (boolean array): length must equal gctoo.data_df.shape[0]
+        ridx (list of integers): row integer positions to include
+        exclude_rid (list of strings): rids to exclude from whatever was selected above
 
     Returns:
         rows_to_keep (list of strings): row ids to be kept
@@ -129,12 +148,17 @@ def get_rows_to_keep(gctoo, rid=None, row_bool=None, ridx=None, exclude_rid=None
 def get_cols_to_keep(gctoo, cid=None, col_bool=None, cidx=None, exclude_cid=None):
     """ Figure out based on the possible columns inputs which columns to keep.
 
+    At most one of cid, col_bool, and cidx is expected to be provided; they
+    are checked in that order of precedence (cid, then col_bool, then cidx),
+    and if all three are None, all columns are kept. exclude_cid is then
+    applied on top of that selection to drop any matching ids.
+
     Args:
-        gctoo (GCToo object):
-        cid (list of strings):
-        col_bool (boolean array):
-        cidx (list of integers):
-        exclude_cid (list of strings):
+        gctoo (GCToo object): object whose columns are being considered
+        cid (list of strings): cids to include
+        col_bool (boolean array): length must equal gctoo.data_df.shape[1]
+        cidx (list of integers): column integer positions to include
+        exclude_cid (list of strings): cids to exclude from whatever was selected above
 
     Returns:
         cols_to_keep (list of strings): col ids to be kept

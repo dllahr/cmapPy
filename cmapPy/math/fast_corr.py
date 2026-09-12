@@ -43,12 +43,24 @@ def fast_corr(x, y=None, destination=None):
 
 
 def calculate_moments_with_additional_mask(x, mask):
-    """calculate the moments (y, y^2, and variance) of the columns of x, excluding masked within x, for each of the masking columns in mask
+    """calculate the moments (mean, mean of squares, and variance) of each column of x (MxN), where for every
+    column of x and every column of mask (MxP) values are excluded from the calculation if they are masked
+    either in x's own mask or in that column of mask. This produces, for each (column of x, column of mask)
+    pair, moments computed over only the rows that are unmasked in both - i.e. a different effective sample
+    size per pair - which is what nan_fast_corr needs in order to compute a standard deviation for each
+    column of x that is consistent with the pairwise-nan-dropping used to compute the corresponding
+    covariance/correlation with each column of the other matrix (represented here by mask).
     Number of rows in x and mask must be the same.
 
     Args:
-        x (numpy.ma.array like)
-        mask (numpy array-like boolean) 
+        x (numpy.ma.array like) MxN masked array; N is the number of variables to compute moments for
+        mask (numpy array-like boolean) MxP; typically the .mask of another masked array. P is the number
+            of variables (e.g. columns of y) that x's moments are being computed against.
+
+    Returns:
+        expect_x (numpy array-like) PxN array of means of each column of x, one per (mask column, x column) pair
+        expect_x_squared (numpy array-like) PxN array of means of the squares of each column of x, computed the same way
+        var_x (numpy array-like) PxN array of the (bias-corrected) variance of each column of x, computed the same way
     """
     non_mask_overlaps = fast_cov.calculate_non_mask_overlaps(x.mask, mask)
 

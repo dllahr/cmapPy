@@ -15,8 +15,16 @@ def _fast_dot_divide(x, y, destination):
 
 
 def calculate_non_mask_overlaps(x_mask, y_mask):
-    """for two mask arrays (x_mask, y_mask - boolean arrays) determine the number of entries in common there would be for each 
-    entry if their dot product were taken
+    """for two boolean mask arrays x_mask (MxN) and y_mask (MxP), determine, for each pair of columns (one
+    from x_mask, one from y_mask), the number of rows that are unmasked in both - i.e. the number of entries
+    that would overlap (be simultaneously non-missing) if the corresponding data columns' dot product were taken.
+
+    Args:
+        x_mask (numpy array-like boolean) MxN
+        y_mask (numpy array-like boolean) MxP; must have the same number of rows as x_mask
+
+    Returns:
+        (numpy array-like) NxP array of overlap counts
     """
     x_is_not_nan = 1 * ~x_mask
     y_is_not_nan = 1 * ~y_mask
@@ -57,6 +65,15 @@ def fast_cov(x, y=None, destination=None):
 
 
 def _fast_cov(mean_method, dot_divide_method, x, y, destination):
+    """internal implementation shared by fast_cov and nan_fast_cov: validates x, y, and destination; reshapes
+    1-D x/y into column vectors; mean-centers x and y using mean_method (e.g. numpy.mean or numpy.nanmean,
+    letting the caller choose nan-tolerant behavior); allocates a zeros destination if one was not provided;
+    and calls dot_divide_method to compute the covariance values into destination.
+
+    Returns:
+        destination (numpy array-like) the (possibly newly allocated) destination, filled with the
+            covariance values
+    """
     validate_inputs(x, y, destination)
 
     new_x = x if len(x.shape) == 2 else x[:, numpy.newaxis]
@@ -80,6 +97,27 @@ def _fast_cov(mean_method, dot_divide_method, x, y, destination):
 
 
 def validate_inputs(x, y, destination):
+    """validate the x, y, and destination arguments used by fast_cov / nan_fast_cov (via _fast_cov), raising
+    an exception describing every problem found if any of the following do not hold:
+        - x is numpy array-like (has a "shape" attribute)
+        - if destination is provided, it is numpy array-like (has a "shape" attribute)
+        - if y is None: when destination is provided, its shape is (N, N) where N is the number of columns
+          of x (or 1 if x is 1-D)
+        - if y is provided: y is numpy array-like, x and y have the same number of rows, and (when
+          destination is provided) destination's shape is (number of columns of x, number of columns of y)
+
+    Args:
+        x (numpy array-like) MxN in shape
+        y (numpy array-like, optional) MxP in shape
+        destination (numpy array-like, optional) location where results would be stored
+
+    Returns:
+        None
+
+    Raises:
+        CmapPyMathFastCovInvalidInputXY: if any of the conditions above are violated; the exception message
+            describes every problem found
+    """
     error_msg = ""
 
     if not hasattr(x, "shape"):
@@ -115,13 +153,18 @@ def validate_inputs(x, y, destination):
 def nan_fast_cov(x, y=None, destination=None):
     """calculate the covariance matrix (ignoring nan values) for the columns of x (MxN), or optionally, the covariance matrix between the
     columns of x and and the columns of y (MxP).  (In the language of statistics, the columns are variables, the rows
-    are observations).
+    are observations). For each pair of columns, only the rows where neither value is nan are used, so
+    different entries of the result may effectively be computed from different numbers of observations (the
+    pairwise non-nan overlap count, minus 1); entries whose overlap count is 0 or 1 (a non-positive divisor)
+    are set to nan.
 
     Args:
         x (numpy array-like) MxN in shape
         y (numpy array-like) MxP in shape
         destination (numpy masked array-like) optional location where to store the results as they are calculated (e.g. a numpy
-            memmap of a file)
+            memmap of a file); if provided, the return value is this (possibly still masked) destination
+            array; if not provided, a new plain (non-masked) numpy array is returned with masked/invalid
+            entries filled with nan
 
         returns (numpy array-like) array of the covariance values
             for defaults (y=None), shape is NxN
@@ -151,4 +194,6 @@ def nan_fast_cov(x, y=None, destination=None):
 
 
 class CmapPyMathFastCovInvalidInputXY(Exception):
+    """Raised by validate_inputs (used within fast_cov / nan_fast_cov) when x, y, and/or destination do not
+    have the expected types (numpy array-like) or compatible shapes."""
     pass

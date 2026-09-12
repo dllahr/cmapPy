@@ -20,7 +20,7 @@ class TestAggWtAvg(unittest.TestCase):
 
         # test that min_wt works
         raw_weights2, weights2 = agg_wt_avg.calculate_weights(test_mat_corr, min_wt=0.85)
-        self.assertEqual(raw_weights2[1], 0.85)
+        self.assertEqual(raw_weights2.iloc[1], 0.85)
 
     def test_get_upper_triangle(self):
         # happy path
@@ -34,12 +34,12 @@ class TestAggWtAvg(unittest.TestCase):
         out_sig, upper_tri_df, raw_weights, weights = agg_wt_avg.agg_wt_avg(test_mat)
         self.assertTrue(out_sig.tolist() == [3.125, 5.75, 6.0])
         self.assertAlmostEqual(upper_tri_df.loc[upper_tri_df.index[0], "corr"], 0.5)
-        self.assertAlmostEqual(raw_weights[0], 0.75)
-        self.assertAlmostEqual(weights[0], 0.375)
+        self.assertAlmostEqual(raw_weights.iloc[0], 0.75)
+        self.assertAlmostEqual(weights.iloc[0], 0.375)
 
         # test on a single signature
         out_sig2, _, _, _ = agg_wt_avg.agg_wt_avg(test_mat[["C"]])
-        pd.util.testing.assert_frame_equal(out_sig2, test_mat[["C"]])
+        pd.testing.assert_frame_equal(out_sig2, test_mat[["C"]])
 
         # should break if empty input
         with self.assertRaises(AssertionError) as e:

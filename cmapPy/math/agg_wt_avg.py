@@ -84,7 +84,10 @@ def agg_wt_avg(mat, min_wt = 0.01, corr_metric='spearman'):
     corr_metric (string): Spearman or Pearson; the correlation method
 
     Returns:
-    out_sig (pandas series): weighted average values
+    out_sig (pandas series): weighted average values. If mat has only one column
+        (a single replicate), out_sig is simply mat itself (unweighted, and still
+        a pandas DataFrame rather than a Series), and upper_tri_df, raw_weights,
+        and weights below are all None.
     upper_tri_df (pandas df): the correlations between each profile that went into the signature
     raw weights (pandas series): weights before normalization
     weights (pandas series): weights after normalization

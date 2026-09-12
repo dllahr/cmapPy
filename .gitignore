@@ -7,3 +7,6 @@ cmapPy.egg-info/
 docs/build
 .DS_Store
 *-checkpoint.ipynb
+.coverage
+htmlcov/
+.pytest_cache/

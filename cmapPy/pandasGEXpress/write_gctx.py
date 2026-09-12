@@ -24,14 +24,19 @@ def write(gctoo_object, out_file_name, convert_back_to_neg_666=True, gzip_compre
 	Input:
 		- gctoo_object (GCToo): A GCToo instance.
 		- out_file_name (str): file name to write gctoo_object to.
-        - convert_back_to_neg_666 (bool): whether to convert np.NAN in metadata back to "-666"
-        - gzip_compression_level (int, default=6): Compression level to use for metadata. 
+        - convert_back_to_neg_666 (bool): whether to convert np.NAN in metadata back to "-666",
+            as per the CMap metadata null convention. Default = True.
+        - gzip_compression_level (int, default=6): Compression level to use for metadata.
         - max_chunk_kb (int, default=1024): The maximum number of KB a given chunk will occupy
-        - matrix_dtype (numpy dtype, default=numpy.float32): Storage data type for data matrix. 
-            NB use numpy.bool_ instead numpy.bool, numnpy.int_ instead numpy.int.  
+        - matrix_dtype (numpy dtype, default=numpy.float32): Storage data type for data matrix.
+            NB use numpy.bool_ instead numpy.bool, numnpy.int_ instead numpy.int.
             See https://numpy.org/doc/stable/user/basics.types.html for list of types
         - data_compression_level (int, default=4): Compression level to use for data. Default value
-            of 4 corresponds to hdf5 default. 
+            of 4 corresponds to hdf5 default.
+
+	Output:
+		None (writes gctoo_object to out_file_name, with a ".gctx" suffix
+		appended if not already present).
 	"""
     # make sure out file has a .gctx suffix
     gctx_out_name = add_gctx_to_out_name(out_file_name)
@@ -89,9 +94,13 @@ def write_src(hdf5_out, gctoo_object, out_file_name):
 	Writes src as attribute of gctx out file. 
 
 	Input:
-		- hdf5_out (h5py): hdf5 file to write to 
+		- hdf5_out (h5py): hdf5 file to write to
 		- gctoo_object (GCToo): GCToo instance to be written to .gctx
-		- out_file_name (str): name of hdf5 out file. 
+		- out_file_name (str): name of hdf5 out file. Used as the src
+			attribute if gctoo_object.src is None.
+
+	Output:
+		None
 	"""
     if gctoo_object.src == None:
         hdf5_out.attrs[src_attr] = out_file_name
@@ -104,7 +113,10 @@ def write_version(hdf5_out):
 	Writes version as attribute of gctx out file. 
 
 	Input:
-		- hdf5_out (h5py): hdf5 file to write to 
+		- hdf5_out (h5py): hdf5 file to write to
+
+	Output:
+		None
 	"""
     hdf5_out.attrs[version_attr] = numpy.bytes_(version_number)
 
@@ -147,12 +159,23 @@ def write_metadata(hdf5_out, dim, metadata_df, convert_back_to_neg_666, gzip_com
     """
 	Writes either column or row metadata to proper node of gctx out (hdf5) file.
 
+	The "id" field is always written as its own utf-8 string dataset. Each
+	remaining metadata column (other than a column literally named "ind",
+	which is skipped) is written as its own dataset: string/object-dtype
+	columns are written via write_string_dataset (utf-8 encoded); other
+	(numeric) columns are written directly, downcasting float64 to
+	float32 and int64 to int32 first (for compatibility/compactness).
+
 	Input:
 		- hdf5_out (h5py): open hdf5 file to write to
-		- dim (str; must be "row" or "col"): dimension of metadata to write to 
-		- metadata_df (pandas DataFrame): metadata DataFrame to write to file 
+		- dim (str; must be "row" or "col"): dimension of metadata to write to
+		- metadata_df (pandas DataFrame): metadata DataFrame to write to file
 		- convert_back_to_neg_666 (bool): Whether to convert numpy.nans back to "-666",
-				as per CMap metadata null convention 
+				as per CMap metadata null convention
+		- gzip_compression (int): gzip compression level to use for each metadata dataset
+
+	Output:
+		None
 	"""
     if dim == "col":
         hdf5_out.create_group(col_meta_group_node)
@@ -204,6 +227,9 @@ def write_string_dataset(hdf5_out, dataset_path, field_name, values, gzip_compre
         - field_name (str): name of the metadata field (or "id"), used only for error messages
         - values (list of str): the values to write
         - gzip_compression (int): compression level to use
+
+    Output:
+        None
     """
     try:
         hdf5_out.create_dataset(dataset_path, data=values,
@@ -220,6 +246,22 @@ def write_string_dataset(hdf5_out, dataset_path, field_name, values, gzip_compre
 
 
 def check_fix_metadata(metadata_df):
+    """
+    Sanitizes a dataframe's index and column labels for writing to HDF5:
+    forward slash ("/") is not allowed in gctx (HDF5) node names, since it
+    is the path separator, so any "/" found in an index or column label is
+    replaced with "|" (a warning is logged for each replacement made).
+
+    Input:
+        - metadata_df (pandas DataFrame): dataframe whose index and/or
+            columns may contain "/" characters (this is used both for
+            data_df, whose index/columns are rid/cid, and for the row/col
+            metadata dataframes, whose index is rid/cid).
+
+    Output:
+        - new_metadata_df (pandas DataFrame): a copy of metadata_df with
+            "/" replaced with "|" in its index and column labels.
+    """
     work_on = [
         ("column", metadata_df.columns), ("index", metadata_df.index)
     ]

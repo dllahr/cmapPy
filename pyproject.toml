@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cmapPy"
+dynamic = ["version"]
+description = "Assorted tools for interacting with .gct, .gctx files and other Connectivity Map (Broad Institute) data/tools"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { text = "BSD 3-clause" }
+maintainers = [
+    { name = "Oana Enache", email = "oana@broadinstitute.org" },
+]
+requires-python = ">=3.8"
+keywords = ["gct", "gctx", "file-manipulation", "Connectivity Map", "CMap", "Broad Institute"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "numpy>=1.20",
+    "pandas>=1.3",
+    "h5py>=3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/cmap/cmapPy"
+Documentation = "https://github.com/cmap/cmapPy/tree/master/docs"
+
+[project.scripts]
+gctx2gct = "cmapPy.pandasGEXpress.gctx2gct:main"
+gct2gctx = "cmapPy.pandasGEXpress.gct2gctx:main"
+concat = "cmapPy.pandasGEXpress.concat:main"
+subset = "cmapPy.pandasGEXpress.subset:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "cmapPy.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["cmapPy", "cmapPy.*"]
+exclude = ["*.tests", "*.tests.*"]

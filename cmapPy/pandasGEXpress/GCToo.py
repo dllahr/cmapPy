@@ -51,13 +51,80 @@ __email__ = 'dlahr@broadinstitute.org'
 
 class GCToo(object):
     """Class representing parsed gct(x) objects as pandas dataframes.
-    Contains 3 component dataframes (row_metadata_df, column_metadata_df,
-    and data_df) as well as an assembly of these 3 into a multi index df
-    that provides an alternate way of selecting data.
+
+    This is the central data structure of cmapPy: every parsed .gct/.gctx
+    file is returned as a GCToo instance, and every file written by
+    write_gct/write_gctx expects one as input. A GCToo bundles together
+    3 component pandas DataFrames that describe a single dataset:
+        - data_df: the numeric data matrix. Rows are indexed by "rid"
+          (row/probe/gene ids), columns are indexed by "cid" (column/
+          sample ids).
+        - row_metadata_df: annotations for each row, indexed by "rid";
+          column names are the row headers ("rhd").
+        - col_metadata_df: annotations for each column, indexed by "cid";
+          column names are the column headers ("chd"). N.B. this df is
+          the transpose of how column metadata is laid out in a gct file
+          (here, cids are rows).
+    An optional 4th attribute, multi_index_df, combines all 3 of the
+    above into a single pandas DataFrame with a MultiIndex for both rows
+    and columns (see assemble_multi_index_df).
+
+    Invariants enforced automatically (via __setattr__, every time
+    data_df, row_metadata_df, or col_metadata_df is assigned):
+        - each of the 3 component dataframes must have unique index and
+          column values (checked by check_df)
+        - the rid values in row_metadata_df.index must exactly match (as
+          a set) the rid values in data_df.index; likewise cid values in
+          col_metadata_df.index must match data_df.columns (checked by
+          id_match_check)
+        - row_metadata_df and col_metadata_df are automatically reindexed
+          to match the order of data_df.index / data_df.columns, so the
+          3 dataframes always agree in both content and order
+        - multi_index_df cannot be reassigned once a GCToo has been
+          constructed; to get a new one, build a new GCToo instance
+
+    N.B. CMap null convention: metadata fields use the sentinel value
+    -666 (not NaN) to represent missing/null values. Parsers accept a
+    convert_neg_666 flag to convert -666 to numpy.nan on read, and
+    writers accept a convert_back_to_neg_666 flag to convert numpy.nan
+    back to -666 on write.
     """
     def __init__(self, data_df, row_metadata_df=None, col_metadata_df=None,
                  src=None, version=None, make_multiindex=False, logger_name=setup_logger.LOGGER_NAME):
+        """Construct a GCToo instance from a data matrix and optional metadata.
 
+        Input:
+            Mandatory:
+            - data_df (pandas DataFrame): the numeric data matrix; index
+                values are rids, column values are cids.
+
+            Optional:
+            - row_metadata_df (pandas DataFrame): row metadata, indexed by
+                rid, with row headers (rhd) as columns. Default=None, in
+                which case an empty DataFrame (index = data_df.index, no
+                columns) is used.
+            - col_metadata_df (pandas DataFrame): column metadata, indexed
+                by cid, with column headers (chd) as columns. Default=None,
+                in which case an empty DataFrame (index = data_df.columns,
+                no columns) is used.
+            - src (str): a label for where this GCToo came from, e.g. the
+                path of the file it was parsed from. Default=None.
+            - version (str): a label for the GCT(X) format version this
+                object corresponds to, e.g. "GCTX1.0". Default=None.
+            - make_multiindex (bool): whether to also assemble
+                multi_index_df at construction time. Default=False.
+            - logger_name (str): name of the logger to use. Default is
+                cmapPy's standard logger name.
+
+        Output:
+            None (the constructed GCToo instance is self).
+
+        Raises:
+            Exception if data_df is not a pandas DataFrame, if any of the
+            3 component dataframes has non-unique index/column values, or
+            if row_metadata_df/col_metadata_df ids don't match data_df's
+            ids (see check_df and id_match_check).
+        """
         self.logger = logging.getLogger(logger_name)
 
         self.src = src
@@ -89,6 +156,20 @@ class GCToo(object):
         self._initialized = True
 
     def __setattr__(self, name, value):
+        """Override to enforce GCToo's invariants whenever a component
+        dataframe is (re)assigned.
+
+        - Assigning row_metadata_df or col_metadata_df validates it
+          (check_df), checks that its ids match data_df (id_match_check),
+          and reindexes it to data_df's row/column order before storing.
+        - Reassigning data_df after initial construction checks that the
+          existing row_metadata_df/col_metadata_df ids still match, then
+          reindexes both metadata dataframes to the new data_df's order.
+        - Reassigning multi_index_df after initial construction is
+          disallowed (raises an Exception); build a new GCToo instance
+          instead.
+        - Any other attribute is set normally.
+        """
         # Make sure row/col metadata agree with data_df before setting
         if name in ["row_metadata_df", "col_metadata_df"]:
             self.check_df(value)
@@ -126,6 +207,18 @@ class GCToo(object):
         """
         Verifies that df is a pandas DataFrame instance and
         that its index and column values are unique.
+
+        Input:
+            - df: object to check (expected to be a pandas DataFrame).
+
+        Output:
+            - True if df is a DataFrame with unique index and column
+                values.
+
+        Raises:
+            Exception if df is not a pandas DataFrame, or if its index or
+            columns contain duplicate values (the error message lists the
+            offending entries).
         """
         if isinstance(df, pd.DataFrame):
             if not df.index.is_unique:
@@ -136,6 +229,7 @@ class GCToo(object):
             if not df.columns.is_unique:
                 repeats = df.columns[df.columns.duplicated()].values
                 msg = "Columns values must be unique but aren't. The following entries appear more than once: {}".format(repeats)
+                self.logger.error(msg)
                 raise Exception("GCToo GCToo.check_df " + msg)
             else:
                 return True
@@ -149,6 +243,21 @@ class GCToo(object):
         Verifies that id values match between:
             - row case: index of data_df & index of row metadata
             - col case: columns of data_df & index of column metadata
+
+        Input:
+            - data_df (pandas DataFrame): the data matrix to check against.
+            - meta_df (pandas DataFrame): row_metadata_df (if dim="row") or
+                col_metadata_df (if dim="col") to check.
+            - dim (str): either "row" or "col"; determines whether
+                data_df.index or data_df.columns is compared to
+                meta_df.index.
+
+        Output:
+            - True if the ids match (same count and same set of values).
+
+        Raises:
+            Exception (with both sets of ids in the message) if the ids
+            don't match.
         """
         if dim == "row":
             if len(data_df.index) == len(meta_df.index) and set(data_df.index) == set(meta_df.index):
@@ -220,7 +329,34 @@ class GCToo(object):
 
 
 def multi_index_df_to_component_dfs(multi_index_df, rid="rid", cid="cid"):
-    """ Convert a multi-index df into 3 component dfs. """
+    """ Convert a multi-index df (as assembled by GCToo.assemble_multi_index_df)
+    back into 3 component dfs: data_df, row_metadata_df, and col_metadata_df.
+
+    Input:
+        Mandatory:
+        - multi_index_df (pandas DataFrame): a dataframe whose index and/or
+            columns are pandas MultiIndex objects, one level of which is
+            named by the rid/cid arguments (row/column ids) and the
+            remaining levels are row/column metadata headers (rhd/chd).
+            If the index (or columns) is not actually a MultiIndex, or
+            has only a single level, the corresponding metadata df will
+            have no columns (i.e. no metadata headers).
+
+        Optional:
+        - rid (str): name of the row id level within multi_index_df's
+            (row) index. Default = "rid".
+        - cid (str): name of the column id level within multi_index_df's
+            column index. Default = "cid".
+
+    Output:
+        - data_df (pandas DataFrame): the numeric data matrix, indexed by
+            rid/cid.
+        - row_metadata_df (pandas DataFrame): row metadata extracted from
+            the non-rid levels of multi_index_df's index, indexed by rid.
+        - col_metadata_df (pandas DataFrame): column metadata extracted
+            from the non-cid levels of multi_index_df's columns, indexed
+            by cid.
+    """
 
     # Id level of the multiindex will become the index
     rids = list(multi_index_df.index.get_level_values(rid))

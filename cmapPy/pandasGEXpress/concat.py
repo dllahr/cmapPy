@@ -52,6 +52,16 @@ logger = logging.getLogger(setup_logger.LOGGER_NAME)
 
 
 def build_parser():
+    """ Build argument parser for the command-line concat tool.
+
+    Returns:
+        parser (argparse.ArgumentParser): parser with arguments for
+            concat_direction, input_filepaths/file_wildcard, out_type,
+            out_name, fields_to_remove, remove_all_metadata_fields,
+            reset_ids, data_null, metadata_null, filler_null, verbose,
+            and error_report_output_file (see concat_main and hstack/vstack
+            for how these are used).
+    """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -95,6 +105,8 @@ def build_parser():
 
 
 def main():
+    """ Entry point for command-line use: parses sys.argv, sets up logging,
+    and calls concat_main(). """
     # get args
     args = build_parser().parse_args(sys.argv[1:])
     setup_logger.setup(verbose=args.verbose)
@@ -105,7 +117,25 @@ def main():
 
 def concat_main(args):
     """ Separate method from main() in order to make testing easier and to
-    enable command-line access. """
+    enable command-line access.
+
+    Gathers the gct(x) files to be concatenated (either from
+    args.input_filepaths, or by globbing args.file_wildcard), parses each of
+    them, and hstacks or vstacks them together (depending on
+    args.concat_direction) before writing the result to args.out_name as
+    either a .gct or .gctx file.
+
+    Args:
+        args (argparse.Namespace): namespace produced by build_parser(),
+            containing concat_direction, input_filepaths, file_wildcard,
+            remove_all_metadata_fields, error_report_output_file,
+            fields_to_remove, reset_ids, out_type, out_name, filler_null,
+            metadata_null, and data_null
+
+    Returns:
+        None (writes concatenated GCToo to args.out_name; returns early
+        without writing anything if only 1 file was found/given)
+    """
 
     # Get files directly
     if args.input_filepaths is not None:
@@ -171,19 +201,38 @@ def get_file_list(wildcard):
 
 
 def hstack(gctoos, remove_all_metadata_fields=False, error_report_file=None, fields_to_remove=[], reset_ids=False):
-    """ Horizontally concatenate gctoos.
+    """ Horizontally concatenate gctoos (i.e. concatenate along the columns/
+    samples, keeping the row metadata "common" between the input gctoos).
+
+    Row metadata ('common') is required to agree (after any requested field
+    removal) across all input gctoos: rows that disagree are reported as a
+    mismatch and raise MismatchCommonMetadataConcatException (optionally
+    writing a tab-separated error report to error_report_file). Column
+    metadata ('concatenated') and the data itself are simply stacked
+    together. The resulting row and column indices are sorted.
 
     Args:
-        gctoos (list of gctoo objects)
-        remove_all_metadata_fields (bool):  ignore/strip all common metadata when combining gctoos
-        error_report_file (string):  path to write file containing error report indicating 
+        gctoos (list of GCToo objects): objects to horizontally concatenate;
+            must have identical (or reconcilable, see fields_to_remove/
+            remove_all_metadata_fields) row metadata
+        remove_all_metadata_fields (bool):  ignore/strip all common (row) metadata when combining gctoos
+        error_report_file (string):  path to write file containing error report indicating
             problems that occurred during hstack, mainly for inconsistencies in common metadata
         fields_to_remove (list of strings): fields to be removed from the
-            common metadata because they don't agree across files
-        reset_ids (bool): set to True if sample ids are not unique
+            common (row) metadata because they don't agree across files
+        reset_ids (bool): set to True if sample (column) ids are not unique across
+            the input gctoos; the original cids are moved to an "old_id" column
+            metadata field and replaced with unique, zero-indexed integers
 
     Return:
-        concated (gctoo object)
+        concated (GCToo object): horizontally concatenated GCToo, with row
+            metadata shared across inputs and column metadata/data stacked
+            together
+
+    Raises:
+        MismatchCommonMetadataConcatException: if the row metadata is not
+            identical (after fields_to_remove/remove_all_metadata_fields
+            are applied) across all input gctoos
     """
     # Separate each gctoo into its component dfs
     row_meta_dfs = []
@@ -225,19 +274,38 @@ def hstack(gctoos, remove_all_metadata_fields=False, error_report_file=None, fie
 
 
 def vstack(gctoos, remove_all_metadata_fields=False, error_report_file=None, fields_to_remove=[], reset_ids=False):
-    """ Vertically concatenate gctoos.
+    """ Vertically concatenate gctoos (i.e. concatenate along the rows/
+    probes, keeping the column metadata "common" between the input gctoos).
+
+    Column metadata ('common') is required to agree (after any requested
+    field removal) across all input gctoos: columns that disagree are
+    reported as a mismatch and raise MismatchCommonMetadataConcatException
+    (optionally writing a tab-separated error report to error_report_file).
+    Row metadata ('concatenated') and the data itself are simply stacked
+    together. The resulting row and column indices are sorted.
 
     Args:
-        gctoos (list of gctoo objects)
-        remove_all_metadata_fields (bool):  ignore/strip all common metadata when combining gctoos
-        error_report_file (string):  path to write file containing error report indicating 
+        gctoos (list of GCToo objects): objects to vertically concatenate;
+            must have identical (or reconcilable, see fields_to_remove/
+            remove_all_metadata_fields) column metadata
+        remove_all_metadata_fields (bool):  ignore/strip all common (column) metadata when combining gctoos
+        error_report_file (string):  path to write file containing error report indicating
             problems that occurred during vstack, mainly for inconsistencies in common metadata
         fields_to_remove (list of strings): fields to be removed from the
-            common metadata because they don't agree across files
-        reset_ids (bool): set to True if row ids are not unique
+            common (column) metadata because they don't agree across files
+        reset_ids (bool): set to True if row ids are not unique across the
+            input gctoos; the original rids are moved to an "old_id" row
+            metadata field and replaced with unique, zero-indexed integers
 
     Return:
-        concated (gctoo object)
+        concated (GCToo object): vertically concatenated GCToo, with column
+            metadata shared across inputs and row metadata/data stacked
+            together
+
+    Raises:
+        MismatchCommonMetadataConcatException: if the column metadata is not
+            identical (after fields_to_remove/remove_all_metadata_fields
+            are applied) across all input gctoos
     """
     # Separate each gctoo into its component dfs
     row_meta_dfs = []
@@ -338,7 +406,7 @@ def build_common_all_meta_df(common_meta_dfs, fields_to_remove, remove_all_metad
         shared_column_headers = sorted(set.intersection(*[set(df.columns) for df in common_meta_dfs]))
         logger.debug("shared_column_headers:  {}".format(shared_column_headers))
 
-        trimmed_common_meta_dfs = [df[shared_column_headers] for df in common_meta_dfs]
+        trimmed_common_meta_dfs = [df[shared_column_headers].copy() for df in common_meta_dfs]
 
         # Remove any column headers that will prevent dfs from being identical
         for df in trimmed_common_meta_dfs:
@@ -535,7 +603,17 @@ def do_reset_ids(concatenated_meta_df, data_df, concat_direction):
 
 
 def reset_ids_in_meta_df(meta_df):
-    """ Meta_df is modified inplace. """
+    """ Replace the index of meta_df with unique, zero-indexed integers,
+    saving the original index values as a new "old_id" column.
+
+    Note that meta_df is modified in-place.
+
+    Args:
+        meta_df (pandas df): metadata df whose index is to be reset
+
+    Returns:
+        None (meta_df modified in-place)
+    """
 
     # Record original index name, and then change it so that the column that it
     # becomes will be appropriately named
@@ -550,6 +628,9 @@ def reset_ids_in_meta_df(meta_df):
 
 
 class MismatchCommonMetadataConcatException(Exception):
+    """ Raised by hstack/vstack (via assemble_common_meta) when the 'common'
+    metadata (row metadata for hstack, column metadata for vstack) does not
+    agree across all the gctoos being concatenated. """
     pass
 
 if __name__ == "__main__":

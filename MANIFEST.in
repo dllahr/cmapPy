@@ -1,6 +1,2 @@
-recursive-include cmapPy *.py
-recursive-include *.gct
-recursive-include *.gctx
-recursive-include *.cfg 
 include LICENSE.txt
 include requirements.txt

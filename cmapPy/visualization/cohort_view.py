@@ -36,8 +36,20 @@ def cohort_view_table(df,
     as columns of the output table.
     @kwarg flag_display_labels: string labels for output columns
     corresonding to flags
-    @kwarg add_percentages: whether to display percentages 
+    @kwarg add_percentages: whether to display percentages
     alongside the counts.
+    @return: table (pandas df): index has one row per distinct category_label
+    value (ordered by category_order), plus a "Grand Total" row (and a
+    "Test Compounds Total" row, if any category_label value contains the
+    substring "Test subset"); columns are "Total" plus one column per
+    flag_display_labels entry. Cell values are integer counts, or, if
+    add_percentages, HTML strings showing the count and its percentage of
+    that row's "Total" (the "Total" column itself is left as a raw integer
+    count; percentage-of-grand-total formatting for it is applied
+    separately, e.g. by display_cohort_stats_table).
+
+    Note: this function mutates the input df in place by adding a "Total"
+    column to it.
     '''
     assert len(flags) == len(flag_display_labels), '"flags" and "flag_display_labels" should have the same length'
     
@@ -102,6 +114,22 @@ def _add_row_percentages(s):
 
 
 def display_cohort_stats_table(table, barplot_column):
+    ''' Apply pandas Styler formatting to a cohort stats table (as returned by
+    cohort_view_table) to make it presentable, e.g. for display in a Jupyter
+    notebook. Adds an inline bar to each cell of barplot_column (scaled
+    relative to the sum of that column across category rows, excluding the
+    "Grand Total" and "Test Compounds Total" rows), formats the "Total"
+    column's cells to show the count and its percentage of the grand total,
+    centers cell text, and visually highlights the "Grand Total" row (and the
+    "Test Compounds Total" row, if present).
+    @param table: cohort stats DataFrame as returned by cohort_view_table;
+    index is expected to be category labels plus a "Grand Total" row (and
+    optionally a "Test Compounds Total" row), columns are "Total" plus the
+    flag display labels.
+    @param barplot_column: name of the column in table to render as an
+    inline bar.
+    @return: pandas.io.formats.style.Styler with the formatting applied.
+    '''
     font_family = "Roboto"
     idx = pd.IndexSlice
     # indexes of the rows corresponding to categories, exludes 

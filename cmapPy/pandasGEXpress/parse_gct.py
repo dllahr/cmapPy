@@ -89,7 +89,7 @@ def parse(file_path, convert_neg_666=True, rid=None, cid=None,
     Args:
         - file_path (string): full path to gct(x) file you want to parse
         - convert_neg_666 (bool): whether to convert -666 values to numpy.nan
-            (see Note below for more details). Default = False.
+            (see Note below for more details). Default = True.
         - rid (list of strings): list of row ids to specifically keep from gct. Default=None.
         - cid (list of strings): list of col ids to specifically keep from gct. Default=None.
         - ridx (list of integers): only read the rows corresponding to this
@@ -165,6 +165,28 @@ def parse(file_path, convert_neg_666=True, rid=None, cid=None,
 
 
 def read_version_and_dims(file_path):
+    """
+    Reads the first two lines of a gct(x) file to determine its GCT version
+    and matrix/metadata dimensions. Transparently handles gzip-compressed
+    files (based on the file extension).
+
+    Input:
+        - file_path (string): full path to gct file to read.
+
+    Output:
+        - version_as_string (string): "GCT1.2" or "GCT1.3".
+        - num_data_rows (int): number of data rows.
+        - num_data_cols (int): number of data columns.
+        - num_row_metadata (int): number of row metadata fields (1 for
+            GCT1.2, where it isn't specified explicitly in the file).
+        - num_col_metadata (int): number of col metadata fields (0 for
+            GCT1.2, where it isn't specified explicitly in the file).
+
+    Raises:
+        Exception if the version line isn't "#1.2" or "#1.3", or if the
+        dimensions line doesn't have the expected number of entries (2 for
+        GCT1.2, 4 for GCT1.3).
+    """
     extension = os.path.splitext(file_path)[-1]
     logger.debug("extension:  {}".format(extension))
 
@@ -214,6 +236,36 @@ def read_version_and_dims(file_path):
 
 
 def parse_into_3_df(file_path, num_data_rows, num_data_cols, num_row_metadata, num_col_metadata, nan_values, data_type=DEFAULT_DATA_TYPE):
+    """
+    Reads the whole gct file (from line 3 onward, i.e. after the version and
+    dimensions lines) into a single all-string dataframe, verifies its shape
+    matches the expected dimensions, and then splits it into the 3 component
+    dataframes.
+
+    Input:
+        Mandatory:
+        - file_path (string): full path to gct file to read.
+        - num_data_rows (int): expected number of data rows.
+        - num_data_cols (int): expected number of data columns.
+        - num_row_metadata (int): expected number of row metadata fields.
+        - num_col_metadata (int): expected number of col metadata fields.
+        - nan_values (list of strings): strings to treat as NaN when reading
+            the file (see pandas.read_csv na_values).
+
+        Optional:
+        - data_type (numpy datatype): datatype to convert the data matrix
+            into. Default = numpy.float32.
+
+    Output:
+        - row_metadata (pandas DataFrame): parsed row metadata.
+        - col_metadata (pandas DataFrame): parsed col metadata.
+        - data (pandas DataFrame): parsed data matrix.
+
+    Raises:
+        AssertionError if the shape of the file as read does not match the
+        dimensions implied by num_data_rows/num_data_cols/num_row_metadata/
+        num_col_metadata.
+    """
     # Read the gct file beginning with line 3
     full_df = pd.read_csv(file_path, sep="\t", header=None, skiprows=2,
                           dtype=str, na_values=nan_values, keep_default_na=False)
@@ -239,6 +291,24 @@ def parse_into_3_df(file_path, num_data_rows, num_data_cols, num_row_metadata, n
 
 
 def assemble_row_metadata(full_df, num_col_metadata, num_data_rows, num_row_metadata):
+    """
+    Extracts row metadata out of the raw, all-string dataframe read from a
+    gct file, and converts each metadata column to numeric where possible.
+
+    Input:
+        - full_df (pandas DataFrame): the entire gct file content (from
+            line 3 onward), as strings.
+        - num_col_metadata (int): number of col metadata fields (rows of
+            full_df occupied by the col metadata block).
+        - num_data_rows (int): number of data rows.
+        - num_row_metadata (int): number of row metadata fields.
+
+    Output:
+        - row_metadata (pandas DataFrame): row metadata, indexed by rid
+            ("rid"), with row headers ("rhd") as columns. Columns that can
+            be converted to numeric are converted; others are left as
+            strings.
+    """
     # Extract values
     row_metadata_row_inds = range(num_col_metadata + 1, num_col_metadata + num_data_rows + 1)
     row_metadata_col_inds = range(1, num_row_metadata + 1)
@@ -265,7 +335,26 @@ def assemble_row_metadata(full_df, num_col_metadata, num_data_rows, num_row_meta
 
 
 def assemble_col_metadata(full_df, num_col_metadata, num_row_metadata, num_data_cols):
+    """
+    Extracts col metadata out of the raw, all-string dataframe read from a
+    gct file, transposes it so that samples are rows, and converts each
+    metadata column to numeric where possible.
 
+    Input:
+        - full_df (pandas DataFrame): the entire gct file content (from
+            line 3 onward), as strings.
+        - num_col_metadata (int): number of col metadata fields.
+        - num_row_metadata (int): number of row metadata fields (columns of
+            full_df occupied by the row metadata block).
+        - num_data_cols (int): number of data columns.
+
+    Output:
+        - col_metadata (pandas DataFrame): col metadata, indexed by cid
+            ("cid"), with col headers ("chd") as columns (i.e. transposed
+            relative to how column metadata is laid out in the gct file).
+            Columns that can be converted to numeric are converted; others
+            are left as strings.
+    """
     # Extract values
     col_metadata_row_inds = range(1, num_col_metadata + 1)
     col_metadata_col_inds = range(num_row_metadata + 1, num_row_metadata + num_data_cols + 1)
@@ -295,6 +384,35 @@ def assemble_col_metadata(full_df, num_col_metadata, num_row_metadata, num_data_
 
 
 def assemble_data(full_df, num_col_metadata, num_data_rows, num_row_metadata, num_data_cols, data_type=DEFAULT_DATA_TYPE):
+    """
+    Extracts the data matrix out of the raw, all-string dataframe read from
+    a gct file, and converts it from strings to data_type.
+
+    Input:
+        Mandatory:
+        - full_df (pandas DataFrame): the entire gct file content (from
+            line 3 onward), as strings.
+        - num_col_metadata (int): number of col metadata fields (rows of
+            full_df occupied by the col metadata block).
+        - num_data_rows (int): number of data rows.
+        - num_row_metadata (int): number of row metadata fields (columns of
+            full_df occupied by the row metadata block).
+        - num_data_cols (int): number of data columns.
+
+        Optional:
+        - data_type (numpy datatype): datatype to convert the data matrix
+            into. Default = numpy.float32.
+
+    Output:
+        - data (pandas DataFrame): the data matrix, indexed by rid ("rid")
+            with cid ("cid") columns, converted to data_type.
+
+    Raises:
+        Exception if any value in the matrix cannot be converted to
+        data_type; the error message identifies the first offending cell
+        and suggests adding the value to nan_values if it should be
+        considered NaN.
+    """
     # Extract values
     data_row_inds = range(num_col_metadata + 1, num_col_metadata + num_data_rows + 1)
     data_col_inds = range(num_row_metadata + 1, num_row_metadata + num_data_cols + 1)
@@ -334,7 +452,23 @@ def assemble_data(full_df, num_col_metadata, num_data_rows, num_row_metadata, nu
 
 
 def create_gctoo_obj(file_path, version, row_metadata_df, col_metadata_df, data_df, make_multiindex):
+    """
+    Assembles the parsed component dataframes into a GCToo instance.
 
+    Input:
+        - file_path (string): full path to the gct file parsed (stored as
+            the GCToo's src).
+        - version (string): GCT version string (e.g. "GCT1.3"), stored as
+            the GCToo's version.
+        - row_metadata_df (pandas DataFrame): parsed row metadata.
+        - col_metadata_df (pandas DataFrame): parsed col metadata.
+        - data_df (pandas DataFrame): parsed data matrix.
+        - make_multiindex (bool): whether to also assemble the GCToo's
+            multi_index_df.
+
+    Output:
+        - gctoo_obj (GCToo): a GCToo instance wrapping the given data.
+    """
     # Move dataframes into GCToo object
     gctoo_obj = GCToo.GCToo(src=file_path,
                             version=version,

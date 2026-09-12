@@ -138,18 +138,38 @@ def stratogram(
 
 
 def is_test_category(category):
-    '''Determine from the category st ring
-    whether this is a test compound category'''
+    '''Determine whether a category name identifies a "test" category (as
+    opposed to e.g. a control category), based on whether the substring
+    "test" (case-insensitive) appears anywhere in the category name.
+
+    Args:
+        category (string): category name
+
+    Returns:
+        bool: True if "test" (case-insensitive) is a substring of category
+    '''
     return 'test' in category.lower()
 
 
 def get_axis_size(ax):
+    '''Get the size, in inches, of a matplotlib Axes' bounding box, based on
+    the current figure's DPI scale transform.
+
+    Args:
+        ax (matplotlib.axes.Axes): axis to measure
+
+    Returns:
+        (float, float): (width, height) in inches
+    '''
     bbox = ax.get_window_extent().transformed(plt.gcf().dpi_scale_trans.inverted())
     width, height = bbox.width, bbox.height
     return width, height
 
 
 def _add_annotation_reproducibility(ax, data, metric_label, col_id, row_id, threshold=0.2, **kwargs):
+    '''Overlay a dashed vertical line at threshold on ax's "reproducibility"
+    histogram, annotate the threshold value on the top row, and annotate the
+    count/percentage of data >= threshold.'''
     logger.info("Adding annotation for column {}".format(metric_label))
     ylim = ax.get_ylim()
     n_points = len(data)
@@ -184,6 +204,9 @@ def _add_annotation_reproducibility(ax, data, metric_label, col_id, row_id, thre
 
 
 def _add_annotation_recall(ax, data, metric_label, col_id, row_id, **kwargs):
+    '''Overlay a dashed vertical line at a fixed threshold of 0.05 on ax's
+    "recall" histogram, annotate the threshold value on the top row, and
+    annotate the count/percentage of data <= threshold.'''
     logger.info("Adding annotation for column {}".format(metric_label))
     ylim = ax.get_ylim()
     n_points = len(data)
@@ -228,7 +251,25 @@ def add_annotations(ax, data, metric_label, col_id, row_id, **kwargs):
     ''' Depending on the metric being plotted,
     optionally add further annotations to the
     axis. For instance, a threshold line or
-    text labels'''
+    text labels.
+
+    If metric_label (case-insensitive, whitespace-stripped) equals
+    "reproducibility", delegates to _add_annotation_reproducibility. Else, if
+    "recall" (case-insensitive) is a substring of metric_label, delegates to
+    _add_annotation_recall. Otherwise no annotation is added.
+
+    Args:
+        ax (matplotlib.axes.Axes): axis the histogram was plotted on
+        data (pandas series): the (NaN-dropped) values plotted in the histogram
+        metric_label (string): display name of the metric being plotted
+        col_id (int): column index of this subplot in the grid
+        row_id (int): row index of this subplot in the grid
+        **kwargs: forwarded to the delegated annotation function (e.g.
+            fontfamily, threshold)
+
+    Returns:
+        None
+    '''
     metric_label = metric_label.strip()
 #     logger.info('Adding annotations')
     logger.info(metric_label)
@@ -248,6 +289,46 @@ def plot_row_of_histograms(
         row_label, row_sublabel,
         fontfamily, colors,
         xtick_orientation, ylabel_fontsize, xlabel_fontsize, xlabel_fontcolor, ylabel_fontcolor):
+    ''' Plot one row (stratum) of histograms into the n_rows x n_cols grid of
+    subplots defined by the GridSpec gs. For each metric in plot_columns, draws
+    a histogram of df[metric] (with NaNs dropped) into the corresponding
+    subplot, filled with colors[col_id]. The row's position within the grid is
+    taken from df[category_order] (all rows of df must share the same value).
+    The top row (row_id == 0) additionally gets column header labels (via
+    xlabel, placed above the axes); the leftmost column (col_id == 0)
+    additionally gets row_label/row_sublabel (via ylabel and adjacent text);
+    all rows except the last have their x tick labels hidden, and the last row
+    keeps them, oriented per xtick_orientation. add_annotations() is called for
+    every subplot to optionally overlay metric-specific annotations (e.g.
+    threshold lines for "reproducibility"/"recall" metrics).
+
+    @param df: DataFrame containing only the rows for this stratum/category.
+    Must have a category_order column with a single unique value giving this
+    row's position in the grid; df.name should be the stratum's identifier.
+    @param gs: matplotlib.gridspec.GridSpec for the overall n_rows x n_cols grid.
+    @param category_order: name of the (integer) column in df giving this
+    stratum's row position in the grid.
+    @param n_rows: total number of rows (strata) in the grid.
+    @param n_cols: total number of columns (metrics) in the grid.
+    @param plot_columns: list of column names (metrics) to plot, one per column.
+    @param column_display_names: list of display names for plot_columns, used
+    as the x-axis label of the top row.
+    @param bins: bins to pass to plt.hist; if an int, converted to
+    numpy.linspace(0, 1, bins) bin edges; otherwise used as-is (e.g. explicit
+    bin edges).
+    @param row_label: label text for this row, drawn via ylabel on the first column.
+    @param row_sublabel: sublabel text (e.g. sample count) drawn to the left of
+    the row label on the first column.
+    @param fontfamily: font family used for axis tick labels.
+    @param colors: list of colors, one per column/metric, used to fill the histograms.
+    @param xtick_orientation: "horizontal" or "vertical"; orientation of the
+    bottom row's x tick labels.
+    @param ylabel_fontsize: font size for row_label/row_sublabel.
+    @param xlabel_fontsize: font size for the column header labels.
+    @param xlabel_fontcolor: color for the column header labels.
+    @param ylabel_fontcolor: color for row_label.
+    @return: None
+    '''
     name = df.name
     row_id = df[category_order].unique()
     assert len(row_id) == 1
@@ -270,7 +351,7 @@ def plot_row_of_histograms(
 
             except Exception as e:
                 plt.text(0.01, 0.5, 'ERROR')
-                logger.errot(str(e))
+                logger.error(str(e))
             
             if row_id == 0:
                 plt.xlabel(colname + "  ",
@@ -313,7 +394,12 @@ def plot_row_of_histograms(
 def break_lines(s):
     '''Split a long phrase by putting the first word
     on the first line and everything else on the second
-    line by inserting a newline between the two.'''
+    line by inserting a newline between the two.
+
+    @param s: string to split, with words separated by single spaces.
+    @return: s unchanged if it has only one word; otherwise a string with the
+    first word, a newline, then the remaining words joined by spaces.
+    '''
     x = s.split(" ")
     if len(x) == 1:
         return s
