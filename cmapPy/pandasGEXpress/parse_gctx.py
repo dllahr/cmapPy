@@ -292,8 +292,13 @@ def parse_metadata_df(dim, meta_group, convert_neg_666):
     array_index = 0
     for k in meta_group.keys():
         curr_dset = meta_group[k]
-        temp_array = np.empty(curr_dset.shape, dtype=curr_dset.dtype)
-        curr_dset.read_direct(temp_array)
+        if h5py.check_string_dtype(np.dtype(curr_dset.dtype)) is not None:
+            # string columns are decoded according to whichever character
+            # set (ascii or utf-8) is recorded in the file for this dataset
+            temp_array = curr_dset.asstr()[:]
+        else:
+            temp_array = np.empty(curr_dset.shape, dtype=curr_dset.dtype)
+            curr_dset.read_direct(temp_array)
         # convert all values to str in temp_array so that
         # to_numeric works consistently with gct and gct_x parser
         temp_array = temp_array.astype('str')

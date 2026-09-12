@@ -215,6 +215,58 @@ class TestWriteGctx(unittest.TestCase):
                             mini_gctoo.col_metadata_df.index, mini_gctoo_col_metadata.index))
         _assert_metadata_columns_equal(self, mini_gctoo.col_metadata_df, mini_gctoo_col_metadata, "C2 col")
 
+    def test_write_metadata_unicode(self):
+        """Metadata containing non-ASCII (UTF-8) characters should round-trip through
+        write_gctx/parse_gctx, and the file should record the field as utf-8 encoded."""
+        mini_gctoo = mini_gctoo_for_testing.make(convert_neg_666=False)
+        row_metadata_df = mini_gctoo.row_metadata_df.copy()
+        col_metadata_df = mini_gctoo.col_metadata_df.copy()
+
+        unicode_values = ["héllo", "wörld", "naïve", "北京市", "Zürich", "café"]
+        row_metadata_df["unicode_field"] = unicode_values[:row_metadata_df.shape[0]]
+        col_metadata_df["unicode_field"] = unicode_values[:col_metadata_df.shape[0]]
+
+        fn = FUNCTIONAL_TESTS_PATH + "/mini_gctoo_metadata_unicode.gctx"
+        hdf5_writer = h5py.File(fn, "w")
+        write_gctx.write_metadata(hdf5_writer, "row", row_metadata_df, False, 6)
+        write_gctx.write_metadata(hdf5_writer, "col", col_metadata_df, False, 6)
+        hdf5_writer.close()
+
+        # confirm the file itself records this field as utf-8 (not ascii)
+        hdf5_reader = h5py.File(fn, "r")
+        string_info = h5py.check_string_dtype(hdf5_reader["/0/META/ROW/unicode_field"].dtype)
+        hdf5_reader.close()
+        self.assertEqual(string_info.encoding, "utf-8")
+
+        parsed_row_metadata = parse_gctx.get_row_metadata(fn, convert_neg_666=False)
+        parsed_col_metadata = parse_gctx.get_column_metadata(fn, convert_neg_666=False)
+        os.remove(fn)
+
+        self.assertEqual(list(row_metadata_df["unicode_field"]), list(parsed_row_metadata["unicode_field"]))
+        self.assertEqual(list(col_metadata_df["unicode_field"]), list(parsed_col_metadata["unicode_field"]))
+
+    def test_write_metadata_bad_encoding_raises_informative_error(self):
+        """A metadata value that cannot be encoded as utf-8 (e.g. a lone surrogate code
+        point) should raise an Exception identifying the offending field and row, rather
+        than a generic/opaque error from h5py or numpy."""
+        mini_gctoo = mini_gctoo_for_testing.make(convert_neg_666=False)
+        row_metadata_df = mini_gctoo.row_metadata_df.copy()
+        bad_values = ["ok"] * row_metadata_df.shape[0]
+        bad_values[1] = "bad\udcffvalue"
+        row_metadata_df["bad_field"] = bad_values
+
+        fn = FUNCTIONAL_TESTS_PATH + "/mini_gctoo_bad_encoding.gctx"
+        hdf5_writer = h5py.File(fn, "w")
+        try:
+            with self.assertRaises(Exception) as cm:
+                write_gctx.write_metadata(hdf5_writer, "row", row_metadata_df, False, 6)
+            msg = str(cm.exception)
+            self.assertIn("bad_field", msg)
+            self.assertIn("i:  1", msg)
+        finally:
+            hdf5_writer.close()
+            os.remove(fn)
+
     def test_check_fix_metadata(self):
         metadata_df = pandas.DataFrame({"a/b":range(3), "c":range(3,6)}, index=["e", "g/h", "i"])
         logger.debug("preparation - metadata_df:\n{}".format(metadata_df))

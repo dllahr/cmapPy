@@ -1,7 +1,6 @@
 import logging
 import h5py
 import numpy
-import pandas
 import cmapPy.pandasGEXpress.setup_GCToo_logger as setup_logger
 
 __author__ = "Oana Enache"
@@ -165,8 +164,8 @@ def write_metadata(hdf5_out, dim, metadata_df, convert_back_to_neg_666, gzip_com
         logger.error("'dim' argument must be either 'row' or 'col'!")
 
     # write id field to expected node
-    hdf5_out.create_dataset(metadata_node_name + "/id", data=[numpy.bytes_(str(x)) for x in metadata_df.index],
-        compression=gzip_compression)
+    write_string_dataset(hdf5_out, metadata_node_name + "/id", "id",
+        [str(x) for x in metadata_df.index], gzip_compression)
 
     metadata_fields = list(metadata_df.columns.copy())
 
@@ -178,27 +177,46 @@ def write_metadata(hdf5_out, dim, metadata_df, convert_back_to_neg_666, gzip_com
     # write metadata columns to their own arrays
     for field in [entry for entry in metadata_fields if entry != "ind"]:
         if numpy.array(metadata_df.loc[:, field]).dtype.type in (numpy.str_, numpy.object_):
-            try:
-                array_write = numpy.array(metadata_df.loc[:, field]).astype('S')
-            except UnicodeEncodeError:
-                for i in range(metadata_df.shape[0]):
-                    try:
-                        numpy.array(metadata_df[field].iloc[i]).astype('S')
-                    except UnicodeEncodeError:
-                        with pandas.option_context('display.max_rows', None, 'display.max_columns', None):
-                            msg = """could not convert this metadata entry to string - field:  {}  i:  {}  metadata_df.iloc[i]:  {}""".format(field, i, metadata_df.iloc[i])
-                            logger.exception(msg)
-                            raise Exception(msg)
-
+            array_write = [str(x) for x in metadata_df.loc[:, field]]
+            write_string_dataset(hdf5_out, metadata_node_name + "/" + field, field,
+                array_write, gzip_compression)
         else:
             array_write = numpy.array(metadata_df.loc[:, field])
             if array_write.dtype == numpy.float64:
                 array_write = array_write.astype(numpy.float32)
             elif array_write.dtype == numpy.int64:
                 array_write = array_write.astype(numpy.int32)
-        hdf5_out.create_dataset(metadata_node_name + "/" + field,
-                                data=array_write,
-                                compression=gzip_compression)
+            hdf5_out.create_dataset(metadata_node_name + "/" + field,
+                                    data=array_write,
+                                    compression=gzip_compression)
+
+
+def write_string_dataset(hdf5_out, dataset_path, field_name, values, gzip_compression):
+    """
+    Writes a list of strings to hdf5_out as a utf-8 encoded string dataset. If any value
+    cannot be encoded as utf-8 (e.g. it contains a lone surrogate code point), raises an
+    Exception identifying the field and entry responsible, rather than a generic error
+    from h5py/numpy.
+
+    Input:
+        - hdf5_out (h5py): open hdf5 file to write to
+        - dataset_path (str): full node path to create the dataset at
+        - field_name (str): name of the metadata field (or "id"), used only for error messages
+        - values (list of str): the values to write
+        - gzip_compression (int): compression level to use
+    """
+    try:
+        hdf5_out.create_dataset(dataset_path, data=values,
+            dtype=h5py.string_dtype(encoding="utf-8"), compression=gzip_compression)
+    except UnicodeEncodeError:
+        for i, value in enumerate(values):
+            try:
+                value.encode("utf-8")
+            except UnicodeEncodeError as e:
+                msg = "could not encode this metadata entry as utf-8 - field:  {}  i:  {}  value:  {}  error:  {}".format(
+                    field_name, i, value, e)
+                logger.exception(msg)
+                raise Exception(msg)
 
 
 def check_fix_metadata(metadata_df):

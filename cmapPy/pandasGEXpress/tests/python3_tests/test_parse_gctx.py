@@ -278,6 +278,31 @@ class TestParseGctx(unittest.TestCase):
         logger.debug("r.index:  {}".format(r.index))
         self.assertEqual(set(expected_rids), set(r.index))
 
+    def test_parse_metadata_df_mixed_encodings(self):
+        # a metadata group can contain a mix of legacy ascii fixed-length string
+        # datasets (as older gctx files would have) and newer utf-8 variable-length
+        # string datasets; parse_metadata_df should decode each field according to
+        # whichever character set is recorded for it in the file, alongside a
+        # numeric field untouched by any of this.
+        fn = "cmapPy/pandasGEXpress/tests/functional_tests/test_parse_metadata_df_mixed_encodings.gctx"
+        with h5py.File(fn, "w") as f:
+            grp = f.create_group("META_TEST")
+            grp.create_dataset("id", data=np.array([b"r1", b"r2"]).astype("S"))
+            grp.create_dataset("ascii_field", data=np.array([b"foo", b"bar"]).astype("S"))
+            grp.create_dataset("utf8_field", data=["héllo", "北京市"],
+                                dtype=h5py.string_dtype(encoding="utf-8"))
+            grp.create_dataset("numeric_field", data=np.array([1.5, 2.5], dtype=np.float32))
+
+        with h5py.File(fn, "r") as f:
+            meta_df = parse_gctx.parse_metadata_df("row", f["META_TEST"], False)
+
+        os.remove(fn)
+
+        self.assertEqual(list(meta_df.index), ["r1", "r2"])
+        self.assertEqual(list(meta_df["ascii_field"]), ["foo", "bar"])
+        self.assertEqual(list(meta_df["utf8_field"]), ["héllo", "北京市"])
+        self.assertEqual(list(meta_df["numeric_field"]), [1.5, 2.5])
+
     def test_replace_666(self):
         # convert_neg_666 is True
         row_df = pd.DataFrame([[3, "a"], [-666, "c"], ["-666", -666.0]],
