@@ -35,7 +35,6 @@ See [docs/installation.md](docs/installation.md) for version details and a devel
 | [`pandasGEXpress`](docs/api/pandasGEXpress.md) | GCT/GCTX file I/O, the `GCToo` class, concat/subset/transform utilities |
 | [`math`](docs/api/math.md) | Vectorized numpy operations: `fast_corr`, `fast_cov`, `robust_zscore`, `agg_wt_avg` |
 | [`set_io`](docs/api/set_io.md) | Read/write `.gmt` (gene set) and `.grp` (list) files |
-| [`visualization`](docs/api/visualization.md) | Plotting utilities (scattergram, stratogram, cohort view) |
 
 Also installs CLI tools: `gctx2gct`, `gct2gctx`, `concat`, `subset` (each takes `-h` for help).
 

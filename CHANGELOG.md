@@ -5,6 +5,17 @@ All notable changes to cmapPy are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-09-12
+
+### Removed
+- Removed `cmapPy.visualization` (`cohort_view`, `scattergram`, `stratogram`) and its tests.
+  An audit found no real development since 2019, no other module depending on it, no
+  mention in any past documentation, and its `matplotlib`/`seaborn`/`IPython` dependencies
+  had never been declared anywhere (so it was never actually installable-and-usable via a
+  plain `pip install cmapPy`/`conda install cmappy`). Its tests had also never been
+  runnable as-is (broken imports and relative paths); those were fixed in this same window,
+  which is what surfaced the module for review in the first place.
+
 ## [4.1.0] - 2026-09-12
 
 ### Added

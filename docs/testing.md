@@ -18,8 +18,7 @@ pytest
 ```
 
 `testpaths` in `setup.cfg` scopes this to `cmapPy/pandasGEXpress/tests`, `cmapPy/math/tests`,
-and `cmapPy/set_io/tests`. (`cmapPy/visualization`'s test files and the removed
-`clue_api_client` module's tests are not part of this — see note at the bottom.)
+and `cmapPy/set_io/tests`.
 
 ## Run a single file or test
 
@@ -45,9 +44,3 @@ pytest --cov=cmapPy --cov-report=term-missing
   tests just call `mini_gctoo_for_testing.make()` directly (some via a class `setUp`).
 - Binary `.gct`/`.gctx` test fixtures live under `cmapPy/pandasGEXpress/tests/functional_tests/`
   and `cmapPy/set_io/tests/functional_tests/`.
-
-## Not currently covered by `pytest`
-
-`cmapPy/visualization/` has its own `test_*.py` files sitting directly in the package
-directory (not a `tests/` subpackage), and isn't part of `testpaths`. Wiring it in — and
-likely reorganizing it into a `visualization/tests/` subpackage first — is a known gap.

@@ -72,12 +72,9 @@ GCTX HDF5 layout: `/0/META/ROW/`, `/0/META/COL/`, `/0/DATA/0/matrix`
 | `pandasGEXpress/` | GCT/GCTX file I/O, GCToo class, concat/subset/transform utilities |
 | `math/` | Vectorized numpy operations: `fast_corr`, `fast_cov`, `robust_zscore`, `agg_wt_avg` |
 | `set_io/` | Read/write `.gmt` (gene set) and `.grp` (list) files |
-| `visualization/` | Plotting utilities (scattergram, stratogram, cohort view) |
 
 ### Test structure
 
 pandasGEXpress tests live under `pandasGEXpress/tests/`. Test fixtures (`.gct`, `.gctx` files) live in `tests/functional_tests/`.
 
 The helper `mini_gctoo_for_testing.py` creates a small representative GCToo object for use in unit tests; `pandasGEXpress/tests/conftest.py` exposes it as pytest fixtures (`mini_gctoo`, `mini_gctoo_unconverted`) for new pytest-style tests. Existing `unittest.TestCase` tests that need one just call `mini_gctoo_for_testing.make()` directly (or via a class `setUp`).
-
-Note: `visualization/` has its own test files but isn't part of `testpaths` / the commands above.
